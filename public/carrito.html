@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carrito de Compras — Tlapalería Central</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <!-- Barra superior -->
+  <div class="top-bar">
+    <span>Revisa los artículos de tu pedido antes de confirmar la compra.</span>
+    <span>Pago presencial al recoger en tienda · Plazo 48h</span>
+  </div>
+
+  <!-- Cabecera -->
+  <header class="main-header">
+    <a href="/" class="brand-container">
+      <div class="brand-icon">🔨</div>
+      <div>
+        <div class="brand-name">Tlapalería Central</div>
+        <div class="brand-subtitle">SISTEMA DE COMPRAS EN LÍNEA</div>
+      </div>
+    </a>
+
+    <div class="header-actions" id="headerActions"></div>
+  </header>
+
+  <!-- Contenido -->
+  <main class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+      <h1 style="color: var(--color-primary); font-size: 1.8rem;">Tu Carrito de Compras</h1>
+      <a href="/" style="color: var(--color-primary); text-decoration: none; font-weight: 600;">← Seguir explorando</a>
+    </div>
+
+    <div id="cartAlert" style="display: none;" class="alert"></div>
+
+    <div id="cartLayout" style="display: flex; gap: 24px; flex-wrap: wrap;">
+      <!-- Lista de artículos a la izquierda -->
+      <div style="flex: 2; min-width: 320px;" id="cartItemsContainer">
+        <div style="text-align: center; padding: 40px; background: white; border-radius: var(--radius-md);">
+          Cargando tu carrito...
+        </div>
+      </div>
+
+      <!-- Resumen a la derecha -->
+      <div style="flex: 1; min-width: 280px;" id="cartSummaryContainer">
+        <div style="background-color: var(--color-surface); padding: 24px; border-radius: var(--radius-md); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm); position: sticky; top: 20px;">
+          <h3 style="margin-bottom: 16px; color: var(--color-primary); border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">
+            Resumen de compra
+          </h3>
+
+          <div style="display: flex; justify-content: space-between; margin-bottom: 12px; color: var(--color-text-muted);">
+            <span>Artículos seleccionados:</span>
+            <strong id="summaryItemsCount">0</strong>
+          </div>
+
+          <div style="display: flex; justify-content: space-between; margin-bottom: 16px; font-size: 1.3rem; font-weight: 800; color: var(--color-text); border-top: 1px solid var(--color-border); padding-top: 12px;">
+            <span>Total a pagar:</span>
+            <span id="summaryTotal" style="color: var(--color-primary);">$0.00 MXN</span>
+          </div>
+
+          <div style="background-color: #F8F9FA; padding: 12px; border-radius: var(--radius-sm); font-size: 0.8rem; color: #555555; margin-bottom: 16px;">
+            ℹ️ <strong>Pago en tienda:</strong> No requieres tarjeta para apartar. Pagarás al recoger tus productos en mostrador dentro de las próximas 48 horas.
+          </div>
+
+          <button id="checkoutBtn" class="btn btn-primary btn-full" style="padding: 14px; font-size: 1.05rem;" disabled>
+            Proceder al Checkout →
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="main-footer">
+    <p>Tlapalería Central &copy; 2026. Todos los derechos reservados.</p>
+  </footer>
+
+  <script src="/js/cart.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    const cartItemsContainer = document.getElementById('cartItemsContainer');
+    const summaryItemsCount = document.getElementById('summaryItemsCount');
+    const summaryTotal = document.getElementById('summaryTotal');
+    const checkoutBtn = document.getElementById('checkoutBtn');
+    const cartAlert = document.getElementById('cartAlert');
+
+    let currentValidatedItems = [];
+
+    async function loadAndValidateCart() {
+      const storedItems = Cart.getItems();
+
+      if (storedItems.length === 0) {
+        cartItemsContainer.innerHTML = `
+          <div style="background-color: var(--color-surface); padding: 48px 24px; text-align: center; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+            <div style="font-size: 3rem; margin-bottom: 16px;">🛒</div>
+            <h2 style="margin-bottom: 8px; color: var(--color-text);">Tu carrito está vacío</h2>
+            <p style="color: var(--color-text-muted); margin-bottom: 24px;">Explora nuestro catálogo para agregar herramientas y materiales a tu pedido.</p>
+            <a href="/" class="btn btn-primary">Ir al Catálogo de Productos</a>
+          </div>
+        `;
+        summaryItemsCount.textContent = '0';
+        summaryTotal.textContent = '$0.00 MXN';
+        checkoutBtn.disabled = true;
+        return;
+      }
+
+      // Validar precios y stock en tiempo real con el servidor
+      try {
+        const payload = storedItems.map(item => ({
+          id: item.id,
+          quantity: item.quantity,
+          client_price_cents: item.price_cents
+        }));
+
+        const response = await fetch('/api/carrito/validar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ items: payload })
+        });
+
+        const data = await response.json();
+        currentValidatedItems = data.items || [];
+
+        // Mostrar advertencia si el precio cambió en el servidor
+        if (data.price_changed) {
+          cartAlert.textContent = 'Aviso: Uno o más artículos han actualizado su precio en el catálogo.';
+          cartAlert.className = 'alert alert-warning';
+          cartAlert.style.display = 'block';
+        } else if (data.has_errors) {
+          cartAlert.textContent = 'Algunos artículos superan la existencia disponible o se han agotado. Revisa las cantidades.';
+          cartAlert.className = 'alert alert-warning';
+          cartAlert.style.display = 'block';
+        } else {
+          cartAlert.style.display = 'none';
+        }
+
+        renderCartItems(currentValidatedItems);
+
+        summaryItemsCount.textContent = data.total_items;
+        summaryTotal.textContent = `$${data.total} MXN`;
+        checkoutBtn.disabled = data.total_items === 0;
+      } catch (err) {
+        console.error('Error validando carrito:', err);
+        cartItemsContainer.innerHTML = `
+          <div class="alert alert-error">Error al conectar con el servidor para validar precios y existencias.</div>
+        `;
+      }
+    }
+
+    function renderCartItems(items) {
+      if (items.length === 0) {
+        loadAndValidateCart();
+        return;
+      }
+
+      cartItemsContainer.innerHTML = `
+        <div style="background-color: var(--color-surface); border-radius: var(--radius-md); border: 1px solid var(--color-border); overflow: hidden; box-shadow: var(--shadow-sm);">
+          ${items.map(item => {
+            const hasError = !!item.error;
+            return `
+              <div style="display: flex; gap: 16px; padding: 16px; border-bottom: 1px solid var(--color-border); align-items: center; flex-wrap: wrap;">
+                <img src="${item.image_url}" alt="${escapeHtml(item.name)}" style="width: 70px; height: 70px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--color-border);" onerror="this.src='https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=400&q=80'">
+                
+                <div style="flex: 2; min-width: 180px;">
+                  <h4 style="font-size: 1rem; color: var(--color-text); margin-bottom: 4px;">${escapeHtml(item.name)}</h4>
+                  <div style="font-size: 0.85rem; color: var(--color-text-muted);">
+                    Precio: <strong>$${item.price} MXN</strong> / ${escapeHtml(item.unit || 'pieza')}
+                  </div>
+                  ${hasError ? `<div style="color: var(--color-error); font-size: 0.8rem; font-weight: 600; margin-top: 4px;">⚠️ ${escapeHtml(item.error)}</div>` : ''}
+                </div>
+
+                <!-- Control de cantidades de HU-07 -->
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <button class="btn btn-secondary btn-sm" onclick="changeQty(${item.id}, ${item.valid_quantity - 1})" ${item.valid_quantity <= 1 ? 'title="Eliminar"' : ''}>
+                    -
+                  </button>
+                  <span style="font-weight: 700; min-width: 28px; text-align: center;">${item.valid_quantity}</span>
+                  <button class="btn btn-secondary btn-sm" onclick="changeQty(${item.id}, ${item.valid_quantity + 1})" ${item.valid_quantity >= item.stock_available ? 'disabled' : ''}>
+                    +
+                  </button>
+                </div>
+
+                <!-- Subtotal de HU-07 -->
+                <div style="flex: 1; min-width: 100px; text-align: right;">
+                  <div style="font-size: 1.1rem; font-weight: 800; color: var(--color-primary);">
+                    $${item.subtotal} MXN
+                  </div>
+                </div>
+
+                <!-- Botón eliminar de HU-07 -->
+                <div>
+                  <button class="btn btn-sm btn-danger" onclick="removeItem(${item.id})" title="Eliminar artículo">
+                    🗑
+                  </button>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    window.changeQty = function(productId, newQty) {
+      if (newQty <= 0) {
+        Cart.removeItem(productId);
+      } else {
+        Cart.updateQuantity(productId, newQty);
+      }
+      loadAndValidateCart();
+    };
+
+    window.removeItem = function(productId) {
+      Cart.removeItem(productId);
+      loadAndValidateCart();
+    };
+
+    checkoutBtn.addEventListener('click', () => {
+      window.location.href = '/checkout.html';
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadAndValidateCart();
+    });
+  </script>
+</body>
+</html>

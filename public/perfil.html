@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mi Cuenta — Tlapalería Central</title>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body>
+
+  <!-- Barra superior -->
+  <div class="top-bar">
+    <span>Panel de cliente: Consulta tu historial de pedidos y actualiza tus datos.</span>
+    <span>Atención a clientes: (55) 1234-5678</span>
+  </div>
+
+  <!-- Cabecera -->
+  <header class="main-header">
+    <a href="/" class="brand-container">
+      <div class="brand-icon">🔨</div>
+      <div>
+        <div class="brand-name">Tlapalería Central</div>
+        <div class="brand-subtitle">SISTEMA DE COMPRAS EN LÍNEA</div>
+      </div>
+    </a>
+
+    <div class="header-actions" id="headerActions"></div>
+  </header>
+
+  <!-- Contenido -->
+  <main class="main-content">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;">
+      <div>
+        <h1 style="color: var(--color-primary); font-size: 1.8rem;" id="userNameTitle">Mi Cuenta</h1>
+        <p style="color: var(--color-text-muted); font-size: 0.9rem;">Gestiona tus compras para recolección en tienda y tus datos de contacto.</p>
+      </div>
+
+      <!-- Pestañas de navegación interna -->
+      <div style="display: flex; gap: 8px;">
+        <button id="tabOrdersBtn" class="btn btn-primary btn-sm">📦 Mis Pedidos</button>
+        <button id="tabProfileBtn" class="btn btn-secondary btn-sm">👤 Mis Datos</button>
+      </div>
+    </div>
+
+    <!-- Alertas globales -->
+    <div id="profileAlert" style="display: none;" class="alert"></div>
+
+    <!-- Pestaña 1: Mis Pedidos (HU-09, HU-10) -->
+    <section id="ordersSection">
+      <h2 style="font-size: 1.3rem; margin-bottom: 16px; color: var(--color-text);">Historial de Pedidos</h2>
+      <div id="ordersListContainer">
+        <div style="text-align: center; padding: 40px; background: white; border-radius: var(--radius-md);">
+          Cargando pedidos...
+        </div>
+      </div>
+    </section>
+
+    <!-- Pestaña 2: Mis Datos (HU-09) -->
+    <section id="profileSection" style="display: none;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 24px;">
+        <!-- Tarjeta de Información General y Teléfono -->
+        <div style="background-color: var(--color-surface); padding: 28px; border-radius: var(--radius-md); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm);">
+          <h3 style="color: var(--color-primary); margin-bottom: 16px;">Información de Contacto</h3>
+          
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 0.8rem; color: var(--color-text-muted); font-weight: 700;">NOMBRE COMPLETO</label>
+            <div id="profileNameDisplay" style="font-size: 1.05rem; font-weight: 600;">-</div>
+          </div>
+
+          <div style="margin-bottom: 14px;">
+            <label style="font-size: 0.8rem; color: var(--color-text-muted); font-weight: 700;">CORREO ELECTRÓNICO</label>
+            <div id="profileEmailDisplay" style="font-size: 1rem;">-</div>
+            <span id="profileVerifiedBadge" class="stock-badge disponible" style="margin-top: 4px; font-size: 0.75rem;">Verificado</span>
+          </div>
+
+          <form id="updatePhoneForm" style="margin-top: 20px; border-top: 1px solid var(--color-border); padding-top: 16px;">
+            <div class="form-group">
+              <label class="form-label" for="profilePhoneInput">Número telefónico (10 dígitos)</label>
+              <input type="tel" id="profilePhoneInput" class="form-control" maxlength="10" pattern="[0-9]{10}" required>
+            </div>
+            <button type="submit" class="btn btn-secondary btn-sm">Actualizar Teléfono</button>
+          </form>
+        </div>
+
+        <!-- Tarjeta de Cambio de Contraseña -->
+        <div style="background-color: var(--color-surface); padding: 28px; border-radius: var(--radius-md); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm);">
+          <h3 style="color: var(--color-primary); margin-bottom: 16px;">Seguridad de la Cuenta</h3>
+          
+          <form id="changePasswordForm">
+            <div class="form-group">
+              <label class="form-label" for="currentPass">Contraseña actual</label>
+              <input type="password" id="currentPass" class="form-control" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="newPass">Nueva contraseña (mínimo 12 caracteres)</label>
+              <input type="password" id="newPass" class="form-control" minlength="12" required>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label" for="confirmNewPass">Confirmar nueva contraseña</label>
+              <input type="password" id="confirmNewPass" class="form-control" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary btn-sm" style="padding: 10px 16px;">
+              Cambiar Contraseña
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="main-footer">
+    <p>Tlapalería Central &copy; 2026. Todos los derechos reservados.</p>
+  </footer>
+
+  <script src="/js/cart.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    const ordersSection = document.getElementById('ordersSection');
+    const profileSection = document.getElementById('profileSection');
+    const tabOrdersBtn = document.getElementById('tabOrdersBtn');
+    const tabProfileBtn = document.getElementById('tabProfileBtn');
+    const ordersListContainer = document.getElementById('ordersListContainer');
+    const profileAlert = document.getElementById('profileAlert');
+
+    function showAlert(msg, isError = true) {
+      profileAlert.textContent = msg;
+      profileAlert.className = 'alert ' + (isError ? 'alert-error' : 'alert-success');
+      profileAlert.style.display = 'block';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // Navegación de pestañas
+    tabOrdersBtn.addEventListener('click', () => {
+      tabOrdersBtn.className = 'btn btn-primary btn-sm';
+      tabProfileBtn.className = 'btn btn-secondary btn-sm';
+      ordersSection.style.display = 'block';
+      profileSection.style.display = 'none';
+      loadOrders();
+    });
+
+    tabProfileBtn.addEventListener('click', () => {
+      tabProfileBtn.className = 'btn btn-primary btn-sm';
+      tabOrdersBtn.className = 'btn btn-secondary btn-sm';
+      ordersSection.style.display = 'none';
+      profileSection.style.display = 'block';
+      loadProfileData();
+    });
+
+    async function init() {
+      const user = await App.checkAuth();
+      if (!user) {
+        window.location.href = '/login.html';
+        return;
+      }
+      document.getElementById('userNameTitle').textContent = `Mi Cuenta — ${user.name}`;
+      loadOrders();
+    }
+
+    async function loadOrders() {
+      ordersListContainer.innerHTML = '<div style="text-align: center; padding: 30px;">Cargando tus compras...</div>';
+      try {
+        const res = await fetch('/api/pedidos/mis-pedidos');
+        const data = await res.json();
+        const orders = data.pedidos || [];
+
+        if (orders.length === 0) {
+          ordersListContainer.innerHTML = `
+            <div style="background-color: var(--color-surface); padding: 40px; text-align: center; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+              <div style="font-size: 2.5rem; margin-bottom: 12px;">📦</div>
+              <h3>Aún no tienes pedidos registrados</h3>
+              <p style="color: var(--color-text-muted); margin: 8px 0 20px 0;">Explora el catálogo y aparta tus productos para recoger en tienda.</p>
+              <a href="/" class="btn btn-primary">Ir a la Tienda</a>
+            </div>
+          `;
+          return;
+        }
+
+        ordersListContainer.innerHTML = orders.map(ord => {
+          const dateStr = new Date(ord.created_at).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+          const deadlineStr = new Date(ord.pickup_deadline).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+          const canCancel = (ord.status === 'CONFIRMADO' || ord.status === 'EN_PREPARACION');
+
+          return `
+            <div style="background-color: var(--color-surface); border-radius: var(--radius-md); border: 1px solid var(--color-border); box-shadow: var(--shadow-sm); margin-bottom: 20px; overflow: hidden;">
+              <!-- Cabecera de pedido -->
+              <div style="background-color: #F8F9FA; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-border); flex-wrap: wrap; gap: 12px;">
+                <div>
+                  <div style="font-size: 0.8rem; color: var(--color-text-muted);">FOLIO DE RECOLECCIÓN</div>
+                  <div style="font-size: 1.2rem; font-weight: 800; color: var(--color-primary); letter-spacing: 0.5px;">${escapeHtml(ord.folio)}</div>
+                  <div style="font-size: 0.8rem; color: #777777;">Registrado: ${dateStr}</div>
+                </div>
+
+                <div style="text-align: right;">
+                  <span class="status-badge status-${ord.status}">${ord.status}</span>
+                  <div style="font-size: 1.25rem; font-weight: 800; color: var(--color-accent); margin-top: 4px;">
+                    $${ord.total} MXN
+                  </div>
+                </div>
+              </div>
+
+              <!-- Lista de artículos -->
+              <div style="padding: 16px 20px;">
+                <div style="font-size: 0.85rem; font-weight: 700; color: var(--color-text-muted); margin-bottom: 8px;">ARTÍCULOS RESERVADOS:</div>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  ${ord.items.map(it => `
+                    <div style="display: flex; justify-content: space-between; font-size: 0.9rem; border-bottom: 1px dashed var(--color-border); padding-bottom: 4px;">
+                      <span>${it.quantity}x ${escapeHtml(it.name)} (${escapeHtml(it.unit)})</span>
+                      <strong>$${it.subtotal} MXN</strong>
+                    </div>
+                  `).join('')}
+                </div>
+
+                <div style="margin-top: 14px; font-size: 0.82rem; color: #555555; background: #FFFDE7; padding: 8px 12px; border-radius: var(--radius-sm);">
+                  ⏰ <strong>Límite para recolección en tienda:</strong> ${deadlineStr} (48 hrs naturales). Pago presencial al recoger.
+                </div>
+
+                ${canCancel ? `
+                  <div style="margin-top: 14px; text-align: right;">
+                    <button class="btn btn-sm btn-danger" onclick="cancelOrder('${ord.folio}')">
+                      ✕ Cancelar Pedido
+                    </button>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error:', err);
+        ordersListContainer.innerHTML = '<div class="alert alert-error">Error al cargar pedidos.</div>';
+      }
+    }
+
+    // [HU-10] Cancelación de pedido
+    window.cancelOrder = async function(folio) {
+      if (!confirm(`¿Estás seguro de cancelar el pedido con folio ${folio}?\nLos artículos reservados volverán inmediatamente al catálogo disponible.`)) {
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/pedidos/${folio}/cancelar`, { method: 'POST' });
+        const data = await res.json();
+
+        if (res.ok) {
+          showAlert(data.message || 'Pedido cancelado con éxito.', false);
+          loadOrders();
+        } else {
+          showAlert(data.error || 'No se pudo cancelar el pedido.');
+        }
+      } catch (e) {
+        showAlert('Error de conexión al cancelar pedido.');
+      }
+    };
+
+    async function loadProfileData() {
+      try {
+        const res = await fetch('/api/perfil');
+        const data = await res.json();
+        const p = data.profile;
+        document.getElementById('profileNameDisplay').textContent = p.name;
+        document.getElementById('profileEmailDisplay').textContent = p.email;
+        document.getElementById('profilePhoneInput').value = p.phone;
+        
+        const badge = document.getElementById('profileVerifiedBadge');
+        if (p.is_verified) {
+          badge.className = 'stock-badge disponible';
+          badge.textContent = '✓ Correo Verificado';
+        } else {
+          badge.className = 'stock-badge bajo';
+          badge.textContent = '⚠️ Correo Pendiente de Verificación';
+        }
+      } catch (e) {
+        console.error('Error cargando perfil:', e);
+      }
+    }
+
+    // Actualizar teléfono
+    document.getElementById('updatePhoneForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const phone = document.getElementById('profilePhoneInput').value.trim();
+      try {
+        const res = await fetch('/api/perfil', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone })
+        });
+        const d = await res.json();
+        if (res.ok) {
+          showAlert('Número telefónico actualizado correctamente.', false);
+        } else {
+          showAlert(d.error || 'Error al actualizar teléfono.');
+        }
+      } catch (err) {
+        showAlert('Error de conexión.');
+      }
+    });
+
+    // Cambiar contraseña
+    document.getElementById('changePasswordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const currentPassword = document.getElementById('currentPass').value;
+      const newPassword = document.getElementById('newPass').value;
+      const confirmPassword = document.getElementById('confirmNewPass').value;
+
+      try {
+        const res = await fetch('/api/perfil/password', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
+        });
+        const d = await res.json();
+        if (res.ok) {
+          showAlert('Contraseña actualizada con éxito.', false);
+          document.getElementById('changePasswordForm').reset();
+        } else {
+          showAlert(d.error || 'Error al actualizar contraseña.');
+        }
+      } catch (err) {
+        showAlert('Error de conexión.');
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Panel Administrativo — Tlapalería Central</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    .admin-nav {
+      display: flex;
+      gap: 8px;
+      border-bottom: 2px solid var(--color-border);
+      margin-bottom: 24px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .admin-nav button {
+      background: none;
+      border: none;
+      padding: 10px 16px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--color-text-muted);
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -6px;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .admin-nav button.active {
+      color: var(--color-primary);
+      border-bottom-color: var(--color-accent);
+    }
+    .kpi-card {
+      background-color: var(--color-surface);
+      padding: 20px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--color-border);
+      box-shadow: var(--shadow-sm);
+    }
+    .kpi-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--color-primary);
+      margin: 8px 0;
+    }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-card {
+      background: white;
+      padding: 32px;
+      border-radius: var(--radius-md);
+      max-width: 550px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Barra superior -->
+  <div class="top-bar" style="background-color: #2E2E2E; color: white;">
+    <span>🔒 Módulo Administrativo Restringido — Tlapalería Central</span>
+    <span>Rol: ADMINISTRADOR</span>
+  </div>
+
+  <!-- Cabecera -->
+  <header class="main-header">
+    <a href="/" class="brand-container">
+      <div class="brand-icon" style="background-color: var(--color-accent);">⚙️</div>
+      <div>
+        <div class="brand-name">Panel Administrativo</div>
+        <div class="brand-subtitle">TLAPALERÍA CENTRAL</div>
+      </div>
+    </a>
+
+    <div style="display: flex; gap: 12px; align-items: center;">
+      <a href="/" class="btn btn-sm btn-secondary">← Ver Tienda Pública</a>
+      <button id="adminLogoutBtn" class="btn btn-sm btn-secondary">Cerrar Sesión</button>
+    </div>
+  </header>
+
+  <!-- Contenido -->
+  <main class="main-content" id="adminMainContent">
+    <div id="adminAuthCheck" style="text-align: center; padding: 60px;">
+      Verificando credenciales de administrador...
+    </div>
+
+    <div id="adminPanelWrapper" style="display: none;">
+      <!-- Pestañas de navegación -->
+      <nav class="admin-nav" id="adminNavTabs">
+        <button class="active" data-tab="resumen">📊 Resumen General</button>
+        <button data-tab="pedidos">📦 Gestión de Pedidos</button>
+        <button data-tab="inventario">📋 Inventario y Movimientos</button>
+        <button data-tab="productos">🏷 Catálogo de Productos</button>
+        <button data-tab="clientes">👥 Clientes</button>
+        <button data-tab="vencimientos">⏰ Vencimientos (48h)</button>
+      </nav>
+
+      <div id="adminAlert" style="display: none;" class="alert"></div>
+
+      <!-- Tab 1: Resumen (HU-11) -->
+      <section id="tab-resumen" class="admin-tab-content">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 28px;">
+          <div class="kpi-card">
+            <span style="font-size: 0.82rem; color: var(--color-text-muted); font-weight: 700;">TOTAL PRODUCTOS ACTIVOS</span>
+            <div class="kpi-value" id="kpiProducts">0</div>
+            <span style="font-size: 0.8rem; color: var(--color-text-muted);">En catálogo público</span>
+          </div>
+
+          <div class="kpi-card">
+            <span style="font-size: 0.82rem; color: var(--color-text-muted); font-weight: 700;">PRODUCTOS CON STOCK BAJO</span>
+            <div class="kpi-value" id="kpiLowStock" style="color: var(--color-warning);">0</div>
+            <span style="font-size: 0.8rem; color: var(--color-text-muted);">Existencia $\le$ 10 unidades</span>
+          </div>
+
+          <div class="kpi-card">
+            <span style="font-size: 0.82rem; color: var(--color-text-muted); font-weight: 700;">CLIENTES REGISTRADOS</span>
+            <div class="kpi-value" id="kpiClients">0</div>
+            <span style="font-size: 0.8rem; color: var(--color-success);" id="kpiVerifiedClients">0 verificados</span>
+          </div>
+        </div>
+
+        <h3 style="margin-bottom: 16px; color: var(--color-primary);">Pedidos por Estado</h3>
+        <div id="ordersStatusSummaryCards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px;"></div>
+      </section>
+
+      <!-- Tab 2: Pedidos (HU-14, HU-15) -->
+      <section id="tab-pedidos" class="admin-tab-content" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+          <h2 style="font-size: 1.4rem; color: var(--color-text);">Control y Entrega de Pedidos</h2>
+          
+          <div style="display: flex; gap: 10px;">
+            <input type="text" id="orderSearchInput" class="form-control" placeholder="Buscar folio o cliente..." style="padding: 6px 12px; font-size: 0.85rem;">
+            <select id="orderStatusFilter" class="form-control" style="padding: 6px 12px; font-size: 0.85rem;">
+              <option value="TODOS">Todos los estados</option>
+              <option value="CONFIRMADO">CONFIRMADO</option>
+              <option value="EN_PREPARACION">EN PREPARACIÓN</option>
+              <option value="LISTO_PARA_RECOLECCION">LISTO PARA RECOLECCIÓN</option>
+              <option value="ENTREGADO">ENTREGADO</option>
+              <option value="CANCELADO">CANCELADO</option>
+              <option value="VENCIDO">VENCIDO</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Folio</th>
+                <th>Cliente</th>
+                <th>Fecha</th>
+                <th>Total</th>
+                <th>Límite 48h</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="adminOrdersTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Tab 3: Inventario y Movimientos (HU-13) -->
+      <section id="tab-inventario" class="admin-tab-content" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 style="font-size: 1.4rem; color: var(--color-text);">Control de Existencias en Tienda</h2>
+          <button id="openMovementModalBtn" class="btn btn-primary btn-sm">+ Registrar Entrada / Ajuste</button>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Producto</th>
+                <th>Categoría</th>
+                <th>Precio</th>
+                <th style="text-align: center;">Físico</th>
+                <th style="text-align: center; color: var(--color-warning);">Reservado</th>
+                <th style="text-align: center; color: var(--color-success);">Disponible</th>
+                <th>Estado Catálogo</th>
+              </tr>
+            </thead>
+            <tbody id="adminInventoryTbody"></tbody>
+          </table>
+        </div>
+
+        <h3 style="margin: 28px 0 12px 0; color: var(--color-primary);">Trazabilidad: Últimos Movimientos de Almacén</h3>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Producto</th>
+                <th>Tipo</th>
+                <th style="text-align: center;">Cantidad</th>
+                <th>Motivo / Referencia</th>
+                <th>Usuario</th>
+              </tr>
+            </thead>
+            <tbody id="adminMovementsTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Tab 4: Catálogo de Productos CRUD (HU-12) -->
+      <section id="tab-productos" class="admin-tab-content" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+          <h2 style="font-size: 1.4rem; color: var(--color-text);">Catálogo de Artículos</h2>
+          <button id="openCreateProductModalBtn" class="btn btn-primary btn-sm">+ Nuevo Producto</button>
+        </div>
+
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Categoría</th>
+                <th>Unidad</th>
+                <th>Precio</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="adminProductsTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Tab 5: Clientes (HU-14) -->
+      <section id="tab-clientes" class="admin-tab-content" style="display: none;">
+        <h2 style="font-size: 1.4rem; color: var(--color-text); margin-bottom: 16px;">Directorio de Clientes</h2>
+        <div class="table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Teléfono</th>
+                <th>Verificado</th>
+                <th>Pedidos Realizados</th>
+                <th>Fecha Registro</th>
+              </tr>
+            </thead>
+            <tbody id="adminClientsTbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Tab 6: Vencimientos (HU-16) -->
+      <section id="tab-vencimientos" class="admin-tab-content" style="display: none;">
+        <h2 style="font-size: 1.4rem; color: var(--color-text); margin-bottom: 12px;">Gestión de Vencimientos de Recolección (48 Horas)</h2>
+        <p style="color: var(--color-text-muted); font-size: 0.9rem; margin-bottom: 20px;">
+          Los pedidos confirmados tienen una vigencia de 48 horas naturales para ser recogidos y pagados en mostrador.
+          Al vencer el plazo, la mercancía reservada se libera de forma automática o manual una sola vez.
+        </p>
+
+        <div style="background-color: var(--color-surface); padding: 24px; border-radius: var(--radius-md); border: 1px solid var(--color-border); max-width: 600px; margin-bottom: 24px;">
+          <h3 style="color: var(--color-primary); margin-bottom: 12px;">Simulación y Procesamiento</h3>
+          
+          <div class="form-group">
+            <label class="form-label" for="simulatedHoursInput">
+              Simular avance del reloj en horas (para pruebas inmediatas sin esperar 48h):
+            </label>
+            <input type="number" id="simulatedHoursInput" class="form-control" value="49" min="0" max="720">
+            <small style="color: var(--color-text-muted);">Un valor $\ge$ 48 horas considerará vencidos los pedidos creados recientemente.</small>
+          </div>
+
+          <button id="processExpirationsBtn" class="btn btn-primary">
+            ⚡ Ejecutar Detección y Liberación de Vencidos
+          </button>
+        </div>
+
+        <div id="expirationResultsArea"></div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Modal para Crear/Editar Producto (HU-12) -->
+  <div class="modal-overlay" id="productModal">
+    <div class="modal-card">
+      <h3 id="modalProductTitle" style="color: var(--color-primary); margin-bottom: 16px;">Nuevo Producto</h3>
+      <form id="productForm">
+        <input type="hidden" id="prodEditId">
+
+        <div class="form-group">
+          <label class="form-label" for="prodName">Nombre del artículo</label>
+          <input type="text" id="prodName" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="prodCategory">Categoría</label>
+          <select id="prodCategory" class="form-control" required>
+            <option value="1">Herramientas</option>
+            <option value="2">Materiales</option>
+            <option value="3">Electricidad</option>
+            <option value="4">Plomería</option>
+            <option value="5">Pinturas</option>
+            <option value="6">Ferretería</option>
+            <option value="7">Jardín</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="prodDesc">Descripción</label>
+          <textarea id="prodDesc" class="form-control" rows="2" required></textarea>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div class="form-group">
+            <label class="form-label" for="prodUnit">Unidad de venta</label>
+            <select id="prodUnit" class="form-control">
+              <option value="pieza">Pieza</option>
+              <option value="paquete">Paquete</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="prodPriceCents">Precio (en pesos MXN)</label>
+            <input type="number" id="prodPricePesos" class="form-control" step="0.50" min="1" placeholder="Ej. 189.00" required>
+          </div>
+        </div>
+
+        <div class="form-group" id="prodInitialStockWrapper">
+          <label class="form-label" for="prodInitialStock">Stock físico inicial</label>
+          <input type="number" id="prodInitialStock" class="form-control" min="0" value="10">
+          <small style="color: var(--color-text-muted);">Existencia inicial al dar de alta el producto.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="prodImageUrl">URL de Imagen</label>
+          <input type="url" id="prodImageUrl" class="form-control" placeholder="https://..." value="https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=400&q=80">
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" onclick="closeProductModal()">Cancelar</button>
+          <button type="submit" id="prodSubmitBtn" class="btn btn-primary">Guardar Producto</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal para Ajuste de Inventario (HU-13) -->
+  <div class="modal-overlay" id="movementModal">
+    <div class="modal-card">
+      <h3 style="color: var(--color-primary); margin-bottom: 16px;">Registrar Movimiento de Inventario</h3>
+      <form id="movementForm">
+        <div class="form-group">
+          <label class="form-label" for="movProductSelect">Producto</label>
+          <select id="movProductSelect" class="form-control" required></select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="movType">Tipo de Movimiento</label>
+          <select id="movType" class="form-control" required>
+            <option value="ENTRADA">ENTRADA (Recepción de mercancía / proveedor)</option>
+            <option value="AJUSTE">AJUSTE (Conteo físico / corrección de inventario)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="movQuantity">Cantidad a sumar o restar</label>
+          <input type="number" id="movQuantity" class="form-control" placeholder="Ej. 10 para sumar, -5 para restar" required>
+          <small style="color: var(--color-text-muted);">Usa números positivos para entradas y negativos para mermas/ajustes.</small>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="movReason">Motivo / Factura / Justificación</label>
+          <input type="text" id="movReason" class="form-control" placeholder="Ej. Factura F-1234 de proveedor" required>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+          <button type="button" class="btn btn-secondary" onclick="closeMovementModal()">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Registrar Movimiento</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="/js/main.js"></script>
+  <script>
+    const adminAuthCheck = document.getElementById('adminAuthCheck');
+    const adminPanelWrapper = document.getElementById('adminPanelWrapper');
+    const adminAlert = document.getElementById('adminAlert');
+    let allProductsCache = [];
+
+    function showAlert(msg, isError = true) {
+      adminAlert.textContent = msg;
+      adminAlert.className = 'alert ' + (isError ? 'alert-error' : 'alert-success');
+      adminAlert.style.display = 'block';
+      setTimeout(() => { adminAlert.style.display = 'none'; }, 4000);
+    }
+
+    async function checkAdminAuth() {
+      const user = await App.checkAuth();
+      if (!user) {
+        window.location.href = '/login.html';
+        return;
+      }
+      if (user.role !== 'ADMINISTRADOR') {
+        adminAuthCheck.innerHTML = `
+          <div style="background: white; padding: 48px; border-radius: var(--radius-md); max-width: 500px; margin: 0 auto; box-shadow: var(--shadow-sm);">
+            <div style="font-size: 3rem; margin-bottom: 12px;">🚫</div>
+            <h2 style="color: var(--color-error);">Acceso Denegado (403)</h2>
+            <p style="margin: 12px 0 24px 0; color: var(--color-text-muted);">Tu cuenta (${escapeHtml(user.email)}) tiene rol CLIENTE y no cuenta con permisos administrativos.</p>
+            <a href="/" class="btn btn-primary">Volver a la Tienda</a>
+          </div>
+        `;
+        return;
+      }
+
+      adminAuthCheck.style.display = 'none';
+      adminPanelWrapper.style.display = 'block';
+      loadSummary();
+    }
+
+    // Pestañas
+    const tabs = document.querySelectorAll('#adminNavTabs button');
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const target = btn.dataset.tab;
+        document.querySelectorAll('.admin-tab-content').forEach(c => c.style.display = 'none');
+        document.getElementById(`tab-${target}`).style.display = 'block';
+
+        if (target === 'resumen') loadSummary();
+        if (target === 'pedidos') loadOrders();
+        if (target === 'inventario') loadInventory();
+        if (target === 'productos') loadProducts();
+        if (target === 'clientes') loadClients();
+      });
+    });
+
+    // 1. Cargar Resumen (HU-11)
+    async function loadSummary() {
+      try {
+        const res = await fetch('/api/admin/resumen');
+        const data = await res.json();
+        const r = data.resumen;
+
+        document.getElementById('kpiProducts').textContent = r.total_products;
+        document.getElementById('kpiLowStock').textContent = r.low_stock_count;
+        document.getElementById('kpiClients').textContent = r.total_clients;
+        document.getElementById('kpiVerifiedClients').textContent = `${r.verified_clients} con correo verificado`;
+
+        const obsContainer = document.getElementById('ordersStatusSummaryCards');
+        obsContainer.innerHTML = '';
+        const statuses = ['CONFIRMADO', 'EN_PREPARACION', 'LISTO_PARA_RECOLECCION', 'ENTREGADO', 'CANCELADO', 'VENCIDO'];
+        
+        statuses.forEach(st => {
+          const item = r.orders_by_status[st] || { count: 0, total: '0.00' };
+          obsContainer.innerHTML += `
+            <div style="background: white; padding: 14px; border-radius: var(--radius-sm); border-left: 4px solid var(--color-primary); box-shadow: var(--shadow-sm);">
+              <span class="status-badge status-${st}">${st}</span>
+              <div style="font-size: 1.4rem; font-weight: 800; margin-top: 6px;">${item.count}</div>
+              <div style="font-size: 0.8rem; color: var(--color-text-muted);">$${item.total} MXN</div>
+            </div>
+          `;
+        });
+      } catch (err) {
+        console.error('Error cargando resumen:', err);
+      }
+    }
+
+    // 2. Cargar Pedidos (HU-14, HU-15)
+    async function loadOrders() {
+      const tbody = document.getElementById('adminOrdersTbody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Cargando pedidos...</td></tr>';
+
+      const status = document.getElementById('orderStatusFilter').value;
+      const q = document.getElementById('orderSearchInput').value;
+
+      try {
+        let url = `/api/admin/pedidos?estado=${encodeURIComponent(status)}`;
+        if (q) url += `&q=${encodeURIComponent(q)}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+        const orders = data.pedidos || [];
+
+        if (orders.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px;">No hay pedidos registrados con este criterio.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = orders.map(ord => {
+          const dateStr = new Date(ord.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          const deadlineStr = new Date(ord.pickup_deadline).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+          return `
+            <tr>
+              <td><strong>${escapeHtml(ord.folio)}</strong></td>
+              <td>
+                <div>${escapeHtml(ord.customer_name)}</div>
+                <small style="color: #777;">${escapeHtml(ord.customer_phone)}</small>
+              </td>
+              <td>${dateStr}</td>
+              <td style="font-weight: 700; color: var(--color-primary);">$${ord.total} MXN</td>
+              <td>${deadlineStr}</td>
+              <td><span class="status-badge status-${ord.status}">${ord.status}</span></td>
+              <td>
+                ${renderStatusTransitionDropdown(ord)}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error cargando pedidos:', err);
+      }
+    }
+
+    function renderStatusTransitionDropdown(ord) {
+      if (['ENTREGADO', 'CANCELADO', 'VENCIDO'].includes(ord.status)) {
+        return `<span style="font-size: 0.8rem; color: #888;">Estado final</span>`;
+      }
+
+      return `
+        <select onchange="updateOrderStatus('${ord.folio}', this.value)" style="padding: 4px; font-size: 0.8rem; border-radius: var(--radius-sm);">
+          <option value="">Cambiar estado...</option>
+          ${ord.status === 'CONFIRMADO' ? '<option value="EN_PREPARACION">→ Pasar a EN PREPARACIÓN</option>' : ''}
+          ${ord.status === 'EN_PREPARACION' ? '<option value="LISTO_PARA_RECOLECCION">→ Pasar a LISTO PARA RECOLECCIÓN</option>' : ''}
+          <option value="ENTREGADO">✓ Entregar y cobrar (descuenta físico)</option>
+          <option value="CANCELADO">✕ Cancelar (libera reserva)</option>
+        </select>
+      `;
+    }
+
+    // [HU-15] Actualizar estado de pedido
+    window.updateOrderStatus = async function(folio, nuevoEstado) {
+      if (!nuevoEstado) return;
+      if (nuevoEstado === 'ENTREGADO') {
+        if (!confirm(`¿Confirmas la entrega física del pedido ${folio}?\nEsta acción registrará la salida física del inventario de forma irreversible.`)) {
+          loadOrders();
+          return;
+        }
+      }
+
+      try {
+        const res = await fetch(`/api/admin/pedidos/${folio}/estado`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nuevo_estado: nuevoEstado })
+        });
+        const d = await res.json();
+        if (res.ok) {
+          showAlert(d.message || 'Estado actualizado con éxito.', false);
+          loadOrders();
+        } else {
+          showAlert(d.error || 'Error al actualizar estado.');
+          loadOrders();
+        }
+      } catch (e) {
+        showAlert('Error de conexión.');
+      }
+    };
+
+    document.getElementById('orderStatusFilter').addEventListener('change', loadOrders);
+    document.getElementById('orderSearchInput').addEventListener('input', loadOrders);
+
+    // 3. Cargar Inventario (HU-13)
+    async function loadInventory() {
+      const tbody = document.getElementById('adminInventoryTbody');
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Cargando inventario...</td></tr>';
+
+      try {
+        const res = await fetch('/api/admin/inventario');
+        const data = await res.json();
+        const items = data.inventario || [];
+        allProductsCache = items;
+
+        tbody.innerHTML = items.map(p => `
+          <tr>
+            <td>${p.id}</td>
+            <td><strong>${escapeHtml(p.name)}</strong></td>
+            <td>${escapeHtml(p.category_name)}</td>
+            <td>$${p.price} / ${escapeHtml(p.unit)}</td>
+            <td style="text-align: center; font-weight: 700;">${p.stock_physical}</td>
+            <td style="text-align: center; font-weight: 700; color: var(--color-warning);">${p.stock_reserved}</td>
+            <td style="text-align: center; font-weight: 800; color: var(--color-success); font-size: 1.05rem;">${p.stock_available}</td>
+            <td>${p.is_active ? '<span class="stock-badge disponible">Activo</span>' : '<span class="stock-badge agotado">Inactivo</span>'}</td>
+          </tr>
+        `).join('');
+
+        loadMovements();
+      } catch (err) {
+        console.error('Error cargando inventario:', err);
+      }
+    }
+
+    async function loadMovements() {
+      const tbody = document.getElementById('adminMovementsTbody');
+      try {
+        const res = await fetch('/api/admin/inventario/movimientos');
+        const data = await res.json();
+        const movs = data.movimientos || [];
+
+        tbody.innerHTML = movs.map(m => {
+          const dStr = new Date(m.created_at).toLocaleDateString('es-MX', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+          return `
+            <tr>
+              <td>${dStr}</td>
+              <td><strong>${escapeHtml(m.product_name)}</strong></td>
+              <td><span class="stock-badge ${m.type === 'ENTRADA' ? 'disponible' : 'bajo'}">${m.type}</span></td>
+              <td style="text-align: center; font-weight: 700;">${m.quantity} ${escapeHtml(m.unit || '')}</td>
+              <td>${escapeHtml(m.reason || '-')}</td>
+              <td>${escapeHtml(m.user_name || 'Sistema')}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Error cargando movimientos:', err);
+      }
+    }
+
+    // Modal Movimiento (HU-13)
+    const movementModal = document.getElementById('movementModal');
+    document.getElementById('openMovementModalBtn').addEventListener('click', () => {
+      const select = document.getElementById('movProductSelect');
+      select.innerHTML = allProductsCache.map(p => `
+        <option value="${p.id}">${escapeHtml(p.name)} (Físico actual: ${p.stock_physical})</option>
+      `).join('');
+      movementModal.style.display = 'flex';
+    });
+
+    window.closeMovementModal = function() {
+      movementModal.style.display = 'none';
+      document.getElementById('movementForm').reset();
+    };
+
+    document.getElementById('movementForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const product_id = document.getElementById('movProductSelect').value;
+      const type = document.getElementById('movType').value;
+      const quantity = document.getElementById('movQuantity').value;
+      const reason = document.getElementById('movReason').value;
+
+      try {
+        const res = await fetch('/api/admin/inventario/movimientos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ product_id, type, quantity, reason })
+        });
+        const d = await res.json();
+        if (res.ok) {
+          showAlert(d.message || 'Movimiento registrado.', false);
+          closeMovementModal();
+          loadInventory();
+        } else {
+          showAlert(d.error || 'Error al registrar movimiento.');
+        }
+      } catch (err) {
+        showAlert('Error de conexión.');
+      }
+    });
+
+    // 4. Cargar Productos CRUD (HU-12)
+    let adminProductsCache = [];
+
+    async function loadProducts() {
+      const tbody = document.getElementById('adminProductsTbody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Cargando catálogo...</td></tr>';
+
+      try {
+        const res = await fetch('/api/admin/productos');
+        const data = await res.json();
+        const prods = data.productos || [];
+        adminProductsCache = prods;
+
+        if (prods.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">No hay artículos registrados.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = prods.map(p => `
+          <tr style="${p.is_active ? '' : 'background-color: #fbfbfb; opacity: 0.85;'}">
+            <td>${p.id}</td>
+            <td><strong>${escapeHtml(p.name)}</strong></td>
+            <td>${escapeHtml(p.category_name || (p.category && p.category.name) || '')}</td>
+            <td>${escapeHtml(p.unit)}</td>
+            <td>$${p.price} MXN</td>
+            <td>${p.is_active ? '<span class="stock-badge disponible">Visible</span>' : '<span class="stock-badge agotado" style="background:#fce8e6; color:#c5221f;">Desactivado</span>'}</td>
+            <td>
+              <div style="display: flex; gap: 8px; justify-content: flex-end; align-items: center;">
+                <button class="btn btn-sm btn-secondary" style="font-weight: 600;" onclick="openEditProductModal(${p.id})">✏️ Modificar</button>
+                ${p.is_active ? 
+                  `<button class="btn btn-sm btn-danger" onclick="deactivateProduct(${p.id})">Desactivar</button>` :
+                  `<button class="btn btn-sm" style="background-color: #28a745; color: white;" onclick="activateProduct(${p.id})">Reactivar</button>`
+                }
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Error cargando productos:', err);
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-error);">Error al cargar productos.</td></tr>';
+      }
+    }
+
+    const productModal = document.getElementById('productModal');
+    const prodInitialStockWrapper = document.getElementById('prodInitialStockWrapper');
+    const prodSubmitBtn = document.getElementById('prodSubmitBtn');
+
+    document.getElementById('openCreateProductModalBtn').addEventListener('click', () => {
+      document.getElementById('modalProductTitle').textContent = 'Nuevo Producto en Catálogo';
+      document.getElementById('prodEditId').value = '';
+      document.getElementById('productForm').reset();
+      if (prodInitialStockWrapper) prodInitialStockWrapper.style.display = 'block';
+      if (prodSubmitBtn) prodSubmitBtn.textContent = 'Registrar Producto';
+      productModal.style.display = 'flex';
+    });
+
+    window.openEditProductModal = function(id) {
+      const p = adminProductsCache.find(item => item.id === id);
+      if (!p) {
+        showAlert('No se encontró la información del producto.');
+        return;
+      }
+
+      document.getElementById('modalProductTitle').textContent = `Modificar Producto #${p.id} — ${p.name}`;
+      document.getElementById('prodEditId').value = p.id;
+      document.getElementById('prodName').value = p.name;
+      document.getElementById('prodCategory').value = p.category_id;
+      document.getElementById('prodDesc').value = p.description;
+      document.getElementById('prodUnit').value = p.unit;
+      document.getElementById('prodPricePesos').value = parseFloat(p.price).toFixed(2);
+      document.getElementById('prodImageUrl').value = p.image_url || '';
+      
+      // Ocultar stock inicial al editar (el inventario se controla en Almacén con trazabilidad)
+      if (prodInitialStockWrapper) prodInitialStockWrapper.style.display = 'none';
+      if (prodSubmitBtn) prodSubmitBtn.textContent = 'Guardar Modificaciones';
+
+      productModal.style.display = 'flex';
+    };
+
+    window.closeProductModal = function() {
+      productModal.style.display = 'none';
+    };
+
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const editId = document.getElementById('prodEditId').value;
+      const isEditing = !!editId;
+
+      const name = document.getElementById('prodName').value.trim();
+      const category_id = parseInt(document.getElementById('prodCategory').value, 10);
+      const description = document.getElementById('prodDesc').value.trim();
+      const unit = document.getElementById('prodUnit').value;
+      const pesos = parseFloat(document.getElementById('prodPricePesos').value);
+      const image_url = document.getElementById('prodImageUrl').value.trim();
+      const price_cents = Math.round(pesos * 100);
+
+      if (!name || isNaN(category_id) || !description || isNaN(price_cents) || price_cents <= 0) {
+        showAlert('Por favor completa todos los campos requeridos con valores válidos.');
+        return;
+      }
+
+      try {
+        let res;
+        if (isEditing) {
+          // PUT /api/admin/productos/:id
+          res = await fetch(`/api/admin/productos/${editId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, category_id, description, unit, price_cents, image_url })
+          });
+        } else {
+          // POST /api/admin/productos
+          const initial_stock = parseInt(document.getElementById('prodInitialStock').value || '0', 10);
+          res = await fetch('/api/admin/productos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, category_id, description, unit, price_cents, initial_stock, image_url })
+          });
+        }
+
+        const d = await res.json();
+        if (res.ok) {
+          showAlert(d.message || (isEditing ? 'Producto modificado exitosamente.' : 'Producto creado exitosamente.'), false);
+          closeProductModal();
+          loadProducts();
+          loadInventory(); // actualiza inventario si cambió de nombre o precio
+        } else {
+          showAlert(d.error || 'Error al guardar producto.');
+        }
+      } catch (err) {
+        showAlert('Error de conexión.');
+      }
+    });
+
+    window.deactivateProduct = async function(id) {
+      if (!confirm('¿Deseas dar de baja este producto del catálogo?\nLa baja es lógica para preservar el histórico de pedidos anteriores.')) return;
+      try {
+        const res = await fetch(`/api/admin/productos/${id}`, { method: 'DELETE' });
+        const d = await res.json();
+        showAlert(d.message || 'Producto desactivado.', false);
+        loadProducts();
+      } catch (err) {
+        showAlert('Error al desactivar.');
+      }
+    };
+
+    window.activateProduct = async function(id) {
+      try {
+        const res = await fetch(`/api/admin/productos/${id}/activar`, { method: 'PATCH' });
+        const d = await res.json();
+        showAlert(d.message || 'Producto reactivado en catálogo.', false);
+        loadProducts();
+      } catch (err) {
+        showAlert('Error al reactivar producto.');
+      }
+    };
+
+    // 5. Cargar Clientes (HU-14)
+    async function loadClients() {
+      const tbody = document.getElementById('adminClientsTbody');
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Cargando clientes...</td></tr>';
+      try {
+        const res = await fetch('/api/admin/clientes');
+        const data = await res.json();
+        const clients = data.clientes || [];
+
+        tbody.innerHTML = clients.map(c => `
+          <tr>
+            <td>${c.id}</td>
+            <td><strong>${escapeHtml(c.name)}</strong></td>
+            <td>${escapeHtml(c.email)}</td>
+            <td>${escapeHtml(c.phone)}</td>
+            <td>${c.is_verified ? '<span class="stock-badge disponible">✓ Verificado</span>' : '<span class="stock-badge bajo">Pendiente</span>'}</td>
+            <td style="text-align: center; font-weight: 700;">${c.orders_count}</td>
+            <td>${new Date(c.created_at).toLocaleDateString('es-MX')}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.error('Error cargando clientes:', err);
+      }
+    }
+
+    // 6. Procesar Vencimientos (HU-16)
+    document.getElementById('processExpirationsBtn').addEventListener('click', async () => {
+      const simulatedHours = document.getElementById('simulatedHoursInput').value;
+      const resultsArea = document.getElementById('expirationResultsArea');
+      resultsArea.innerHTML = '<div class="alert alert-info">Evaluando pedidos vencidos y liberando reservas...</div>';
+
+      try {
+        const res = await fetch('/api/admin/pedidos/procesar-vencimientos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ simulated_hours: simulatedHours })
+        });
+        const data = await res.json();
+
+        if (res.ok) {
+          resultsArea.innerHTML = `
+            <div class="alert alert-success">
+              <strong>Resultado:</strong> ${escapeHtml(data.message)}<br>
+              ${data.folios_vencidos && data.folios_vencidos.length ? `<strong>Folios liberados:</strong> ${data.folios_vencidos.join(', ')}` : ''}
+            </div>
+          `;
+          loadSummary();
+        } else {
+          resultsArea.innerHTML = `<div class="alert alert-error">${escapeHtml(data.error || 'Error al procesar.')}</div>`;
+        }
+      } catch (err) {
+        resultsArea.innerHTML = '<div class="alert alert-error">Error de conexión al procesar vencimientos.</div>';
+      }
+    });
+
+    document.getElementById('adminLogoutBtn').addEventListener('click', () => {
+      App.logout();
+    });
+
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAdminAuth();
+    });
+  </script>
+</body>
+</html>

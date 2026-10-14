@@ -3,61 +3,278 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Tlapalería Central — Sistema de Compras en Línea</title>
+  <title>Tlapalería Central — Catálogo y Compras en Línea</title>
   <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
-  <!-- Barra superior informativa -->
+
+  <!-- Barra superior informativa (según maqueta) -->
   <div class="top-bar">
     <span>Todo lo que necesitas para construir, reparar y mejorar.</span>
-    <span>Pago presencial al recoger en tienda · Garantía de calidad</span>
+    <div class="top-bar-badges">
+      <span class="top-badge">🚚 Materiales de calidad</span>
+      <span class="top-badge">🛡️ Compra segura</span>
+      <span class="top-badge">⚡ Fácil y rápido</span>
+      <span class="top-badge">👷 Para clientes y profesionales</span>
+    </div>
   </div>
 
   <!-- Cabecera principal -->
   <header class="main-header">
     <a href="/" class="brand-container">
+      <div class="brand-icon">🔨</div>
       <div>
         <div class="brand-name">Tlapalería Central</div>
-        <div class="brand-subtitle">Sistema de Compras en Línea</div>
+        <div class="brand-subtitle">SISTEMA DE COMPRAS EN LÍNEA</div>
       </div>
     </a>
 
-    <div style="display: flex; gap: 12px; align-items: center;">
-      <a href="/login.html" class="btn btn-secondary" id="navLoginBtn">Iniciar sesión</a>
-      <a href="/registro.html" class="btn btn-primary" id="navRegistroBtn">Crear cuenta</a>
+    <!-- Buscador central por nombre o descripción -->
+    <div class="search-container">
+      <input type="text" id="searchInput" class="search-input" placeholder="Buscar productos, marcas o categorías..." aria-label="Buscar productos">
+      <button id="searchBtn" class="search-btn" title="Buscar">🔍 Buscar</button>
+    </div>
+
+    <!-- Controles de cuenta y carrito dinámicos -->
+    <div class="header-actions" id="headerActions">
+      <!-- Se inyecta dinámicamente desde main.js -->
     </div>
   </header>
 
-  <!-- Barra de categorías (Azul Acero) -->
-  <nav class="category-nav">
-    <a href="#" class="active">Todas las categorías</a>
-    <a href="#">Herramientas</a>
-    <a href="#">Materiales</a>
-    <a href="#">Electricidad</a>
-    <a href="#">Plomería</a>
-    <a href="#">Pinturas</a>
-    <a href="#">Ferretería</a>
-    <a href="#">Jardín</a>
+  <!-- Barra de categorías en Azul Acero (según maqueta) -->
+  <nav class="category-nav" id="categoryNav">
+    <a href="#" data-category="todas" class="active">Todas las categorías</a>
+    <a href="#" data-category="herramientas">Herramientas</a>
+    <a href="#" data-category="materiales">Materiales</a>
+    <a href="#" data-category="electricidad">Electricidad</a>
+    <a href="#" data-category="plomeria">Plomería</a>
+    <a href="#" data-category="pinturas">Pinturas</a>
+    <a href="#" data-category="ferreteria">Ferretería</a>
+    <a href="#" data-category="jardin">Jardín</a>
   </nav>
 
   <!-- Contenido principal -->
   <main class="main-content">
-    <div style="background-color: var(--color-surface); padding: 32px; border-radius: var(--radius-md); box-shadow: var(--shadow-sm); text-align: center;">
-      <h1 style="color: var(--color-primary); margin-bottom: 12px; font-size: 2rem;">Bienvenido a Tlapalería Central</h1>
-      <p style="color: var(--color-text-muted); max-width: 600px; margin: 0 auto 24px auto;">
-        Plataforma web para consultar catálogo, gestionar tu carrito y generar pedidos con folio único para recolección en tienda.
-      </p>
-      <div style="display: inline-flex; gap: 12px;">
-        <a href="/login.html" class="btn btn-primary">Acceder al Sistema</a>
-        <a href="/registro.html" class="btn btn-secondary">Registrarse como Cliente</a>
+    <!-- Banner promocional Hero según maqueta -->
+    <section class="hero-banner">
+      <div class="hero-text">
+        <h1>Todo para tus proyectos</h1>
+        <p>Herramientas, materiales y más en un solo lugar. Aparta tu pedido en línea y paga al recoger en tienda física.</p>
+        <a href="#catalogoSection" class="btn btn-primary" style="padding: 12px 24px; font-size: 1.05rem;">
+          Ver catálogo completo
+        </a>
       </div>
+      <div style="font-size: 4rem; display: none; @media(min-width: 768px){display: block;}">
+        🛠️ 📦 💡
+      </div>
+    </section>
+
+    <!-- Notificación emergente al agregar al carrito -->
+    <div id="cartToast" style="display: none; position: fixed; bottom: 24px; right: 24px; z-index: 1000; background-color: var(--color-primary); color: white; padding: 14px 20px; border-radius: var(--radius-md); box-shadow: var(--shadow-lg);">
+      ¡Producto agregado al carrito!
     </div>
+
+    <!-- Sección de Catálogo -->
+    <section id="catalogoSection">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 12px;">
+        <div>
+          <h2 style="font-size: 1.6rem; color: var(--color-text);" id="catalogTitle">Productos destacados</h2>
+          <p style="color: var(--color-text-muted); font-size: 0.9rem;">Consulta existencias y disponibilidad en tiempo real.</p>
+        </div>
+        <div id="activeFilterBadge" style="display: none;">
+          <span style="font-size: 0.85rem; background-color: var(--color-border); padding: 4px 10px; border-radius: 12px;">
+            Filtro: <strong id="filterName"></strong>
+            <button id="clearFilterBtn" style="border: none; background: none; cursor: pointer; margin-left: 4px;">✕</button>
+          </span>
+        </div>
+      </div>
+
+      <!-- Grid dinámico de productos -->
+      <div class="products-grid" id="productsGrid">
+        <div style="text-align: center; grid-column: 1 / -1; padding: 40px; color: var(--color-text-muted);">
+          Cargando productos de la tlapalería...
+        </div>
+      </div>
+    </section>
   </main>
 
-  <!-- Pie de página -->
+  <!-- Pie de página con información del negocio -->
   <footer class="main-footer">
-    <p>Tlapalería Central &copy; 2026. Todos los derechos reservados.</p>
-    <p style="color: #999999; font-size: 0.8rem; margin-top: 4px;">Horarios de atención: Lunes a Sábado de 8:00 a 19:00 hrs.</p>
+    <div class="footer-content">
+      <div class="footer-col">
+        <h4>Tlapalería Central</h4>
+        <p>Todo lo que necesitas para construir, reparar y mejorar tu hogar y obra.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Recolección y Pago</h4>
+        <p>Los pedidos se recogen en tienda física con pago presencial (efectivo o tarjeta).</p>
+        <p>Plazo máximo de recolección: 48 horas naturales.</p>
+      </div>
+      <div class="footer-col">
+        <h4>Horarios y Contacto</h4>
+        <p>Lunes a Sábado: 8:00 a 19:00 hrs.</p>
+        <p>Teléfono: (55) 1234-5678</p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>Tlapalería Central &copy; 2026. Sistema de Compras en Línea. Todos los derechos reservados.</p>
+    </div>
   </footer>
+
+  <script src="/js/cart.js"></script>
+  <script src="/js/main.js"></script>
+  <script>
+    let currentCategory = 'todas';
+    let currentSearch = '';
+    let loadedProducts = [];
+
+    const productsGrid = document.getElementById('productsGrid');
+    const searchInput = document.getElementById('searchInput');
+    const searchBtn = document.getElementById('searchBtn');
+    const categoryNav = document.getElementById('categoryNav');
+    const cartToast = document.getElementById('cartToast');
+    const activeFilterBadge = document.getElementById('activeFilterBadge');
+    const filterName = document.getElementById('filterName');
+    const clearFilterBtn = document.getElementById('clearFilterBtn');
+
+    function showToast(message) {
+      cartToast.textContent = message;
+      cartToast.style.display = 'block';
+      setTimeout(() => {
+        cartToast.style.display = 'none';
+      }, 2500);
+    }
+
+    async function fetchProducts() {
+      productsGrid.innerHTML = `
+        <div style="text-align: center; grid-column: 1 / -1; padding: 40px; color: var(--color-text-muted);">
+          Cargando catálogo...
+        </div>
+      `;
+
+      try {
+        let url = `/api/productos?categoria=${encodeURIComponent(currentCategory)}`;
+        if (currentSearch.trim()) {
+          url += `&q=${encodeURIComponent(currentSearch.trim())}`;
+        }
+
+        const res = await fetch(url);
+        const data = await res.json();
+        loadedProducts = data.productos || [];
+
+        renderProducts(loadedProducts);
+      } catch (err) {
+        console.error('Error cargando catálogo:', err);
+        productsGrid.innerHTML = `
+          <div style="text-align: center; grid-column: 1 / -1; padding: 40px; color: var(--color-error);">
+            No se pudo cargar el catálogo. Verifique la conexión con el servidor.
+          </div>
+        `;
+      }
+    }
+
+    function renderProducts(products) {
+      if (!products || products.length === 0) {
+        productsGrid.innerHTML = `
+          <div style="text-align: center; grid-column: 1 / -1; padding: 40px; color: var(--color-text-muted);">
+            No se encontraron productos que coincidan con la búsqueda.
+          </div>
+        `;
+        return;
+      }
+
+      productsGrid.innerHTML = products.map(p => {
+        const isOutOfStock = !p.can_purchase;
+        let badgeClass = 'disponible';
+        if (p.stock_status === 'AGOTADO') badgeClass = 'agotado';
+        else if (p.stock_status === 'BAJO') badgeClass = 'bajo';
+
+        return `
+          <div class="product-card" id="product-${p.id}">
+            <div class="product-image-container">
+              <img src="${p.image_url}" alt="${escapeHtml(p.name)}" class="product-image" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=400&q=80'">
+              <span class="product-category-tag">${escapeHtml(p.category.name)}</span>
+            </div>
+            <div class="product-info">
+              <h3 class="product-name">${escapeHtml(p.name)}</h3>
+              <p class="product-desc">${escapeHtml(p.description)}</p>
+              
+              <div class="product-price">
+                $${p.price} <span class="product-unit">MXN / ${escapeHtml(p.unit)}</span>
+              </div>
+
+              <!-- Regla de existencias de HU-05 -->
+              <div>
+                <span class="stock-badge ${badgeClass}">${p.stock_display}</span>
+              </div>
+
+              <button 
+                class="btn btn-primary" 
+                style="margin-top: auto;"
+                ${isOutOfStock ? 'disabled' : ''}
+                onclick="handleAddToCart(${p.id})">
+                ${isOutOfStock ? 'Agotado' : '🛒 Agregar al carrito'}
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.handleAddToCart = function(productId) {
+      const prod = loadedProducts.find(p => p.id === productId);
+      if (!prod || !prod.can_purchase) return;
+
+      Cart.addItem(prod, 1);
+      showToast(`¡Agregaste "${prod.name}" al carrito!`);
+    };
+
+    // Filtro por categoría
+    categoryNav.addEventListener('click', (e) => {
+      const link = e.target.closest('a');
+      if (!link) return;
+      e.preventDefault();
+
+      categoryNav.querySelectorAll('a').forEach(a => a.classList.remove('active'));
+      link.classList.add('active');
+
+      currentCategory = link.dataset.category || 'todas';
+
+      if (currentCategory !== 'todas') {
+        activeFilterBadge.style.display = 'block';
+        filterName.textContent = link.textContent;
+      } else {
+        activeFilterBadge.style.display = 'none';
+      }
+
+      fetchProducts();
+    });
+
+    clearFilterBtn.addEventListener('click', () => {
+      currentCategory = 'todas';
+      categoryNav.querySelectorAll('a').forEach(a => {
+        if (a.dataset.category === 'todas') a.classList.add('active');
+        else a.classList.remove('active');
+      });
+      activeFilterBadge.style.display = 'none';
+      fetchProducts();
+    });
+
+    // Búsqueda por nombre
+    searchBtn.addEventListener('click', () => {
+      currentSearch = searchInput.value;
+      fetchProducts();
+    });
+
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        currentSearch = searchInput.value;
+        fetchProducts();
+      }
+    });
+
+    // Inicializar carga de catálogo
+    fetchProducts();
+  </script>
 </body>
 </html>

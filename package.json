@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server/index.js",
     "dev": "node --watch server/index.js",
-    "test": "node server/verify.js"
+    "seed": "node server/seed.js",
+    "test": "node server/tests/full_system_test.js",
+    "test:email": "node server/test_mailer.js"
   },
   "keywords": [
     "tlapaleria",
@@ -19,6 +21,7 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^13.0.3",
-    "express": "^4.22.3"
+    "express": "^4.22.3",
+    "nodemailer": "^10.1.1"
   }
 }

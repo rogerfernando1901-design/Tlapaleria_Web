@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificación de Correo — Tlapalería Central</title>
+  <link rel="stylesheet" href="/css/styles.css">
+  <link rel="stylesheet" href="/css/auth.css">
+</head>
+<body class="auth-page">
+
+  <div class="auth-split-container" style="max-width: 520px; min-height: auto;">
+    <div class="auth-form-side" style="padding: 40px; text-align: center;">
+      <div class="auth-header-logo">
+        <span style="color: var(--color-primary);">Tlapalería</span> <span style="color: var(--color-accent);">Central</span>
+      </div>
+
+      <h3 id="statusTitle" style="margin-top: 16px;">Verificando enlace...</h3>
+      <div id="statusIcon" style="font-size: 3rem; margin: 16px 0;">⏳</div>
+      <p id="statusMsg" style="color: var(--color-text-muted); margin-bottom: 24px;">
+        Por favor espera un momento mientras validamos tu token de seguridad.
+      </p>
+
+      <div id="actionArea"></div>
+
+      <!-- Sección de reenvío en caso de enlace vencido -->
+      <div id="resendSection" style="display: none; border-top: 1px solid var(--color-border); padding-top: 20px; margin-top: 20px; text-align: left;">
+        <h4 style="font-size: 0.95rem; margin-bottom: 8px;">¿Tu enlace venció o no lo recibiste?</h4>
+        <p style="font-size: 0.85rem; color: var(--color-text-muted); margin-bottom: 12px;">
+          Ingresa tu correo para generar un nuevo enlace seguro (invalidará el anterior):
+        </p>
+        <div style="display: flex; gap: 8px;">
+          <input type="email" id="resendEmail" class="form-control" placeholder="tu@correo.com" style="flex: 1;">
+          <button id="resendBtn" class="btn btn-primary btn-sm">Reenviar</button>
+        </div>
+        <div id="resendAlert" style="display: none; margin-top: 10px;" class="alert"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    const statusTitle = document.getElementById('statusTitle');
+    const statusIcon = document.getElementById('statusIcon');
+    const statusMsg = document.getElementById('statusMsg');
+    const actionArea = document.getElementById('actionArea');
+    const resendSection = document.getElementById('resendSection');
+
+    async function verifyToken() {
+      if (!token) {
+        statusTitle.textContent = 'Enlace incompleto';
+        statusIcon.textContent = '⚠️';
+        statusMsg.textContent = 'No se proporcionó ningún token de verificación en la URL.';
+        actionArea.innerHTML = `<a href="/login.html" class="btn btn-secondary btn-full">Ir a Iniciar Sesión</a>`;
+        resendSection.style.display = 'block';
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/auth/verificar?token=${encodeURIComponent(token)}`);
+        const data = await response.json();
+
+        if (response.ok) {
+          statusTitle.textContent = '¡Cuenta Verificada!';
+          statusIcon.textContent = '✅';
+          statusMsg.textContent = data.message || 'Tu correo ha sido confirmado exitosamente. Ya puedes iniciar sesión y comprar.';
+          actionArea.innerHTML = `<a href="/login.html" class="btn btn-primary btn-full" style="padding: 12px;">Iniciar Sesión Ahora</a>`;
+        } else {
+          statusTitle.textContent = 'Enlace no válido o expirado';
+          statusIcon.textContent = '❌';
+          statusMsg.textContent = data.error || 'El enlace de verificación no es válido o ha expirado.';
+          actionArea.innerHTML = `<a href="/login.html" class="btn btn-secondary btn-full">Ir al Login</a>`;
+          resendSection.style.display = 'block';
+        }
+      } catch (err) {
+        console.error('Error al verificar:', err);
+        statusTitle.textContent = 'Error de conexión';
+        statusIcon.textContent = '🔌';
+        statusMsg.textContent = 'No se pudo conectar con el servidor local para verificar el token.';
+      }
+    }
+
+    // Lógica para reenviar enlace
+    const resendBtn = document.getElementById('resendBtn');
+    const resendEmail = document.getElementById('resendEmail');
+    const resendAlert = document.getElementById('resendAlert');
+
+    resendBtn.addEventListener('click', async () => {
+      const email = resendEmail.value.trim();
+      if (!email) return;
+
+      resendBtn.disabled = true;
+      resendBtn.textContent = 'Enviando...';
+      resendAlert.style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth/reenviar-verificacion', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const d = await res.json();
+        resendAlert.textContent = d.message || 'Solicitud procesada. Revisa la consola del servidor.';
+        resendAlert.className = 'alert alert-info';
+        resendAlert.style.display = 'block';
+      } catch (err) {
+        resendAlert.textContent = 'Error de comunicación.';
+        resendAlert.className = 'alert alert-error';
+        resendAlert.style.display = 'block';
+      } finally {
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'Reenviar';
+      }
+    });
+
+    verifyToken();
+  </script>
+</body>
+</html>

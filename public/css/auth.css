@@ -1,0 +1,154 @@
+/**
+ * public/css/auth.css
+ * Estilos específicos para la pantalla de inicio de sesión dividida (Split Screen)
+ * y formularios de registro y recuperación, en estricto apego a la maqueta de referencia.
+ */
+
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #E9ECEF;
+  padding: 24px 16px;
+}
+
+.auth-split-container {
+  display: flex;
+  width: 100%;
+  max-width: 960px;
+  min-height: 560px;
+  background-color: var(--color-surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+
+/* Columna Izquierda: Fotografía de taller y beneficios */
+.auth-banner-side {
+  flex: 1;
+  background: linear-gradient(rgba(15, 30, 48, 0.75), rgba(31, 78, 121, 0.85)),
+              url('https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=800&q=80') center/cover no-repeat;
+  color: white;
+  padding: 48px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.auth-banner-content h2 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 12px;
+}
+
+.auth-banner-content p {
+  font-size: 1.05rem;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.auth-features-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 32px;
+}
+
+.auth-feature-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(4px);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.auth-feature-icon {
+  font-size: 1.2rem;
+}
+
+/* Columna Derecha: Tarjeta de Formulario */
+.auth-form-side {
+  flex: 1.1;
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background-color: var(--color-surface);
+}
+
+.auth-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.auth-header-logo {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--color-primary);
+  margin-bottom: 8px;
+}
+
+.auth-header h3 {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 4px;
+}
+
+.auth-header p {
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.auth-options-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  font-size: 0.85rem;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 20px 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.auth-divider span {
+  padding: 0 10px;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+/* Responsividad para móviles */
+@media (max-width: 768px) {
+  .auth-split-container {
+    flex-direction: column;
+    max-width: 480px;
+  }
+  .auth-banner-side {
+    display: none; /* En pantallas pequeñas se prioriza el formulario de acceso */
+  }
+  .auth-form-side {
+    padding: 32px 24px;
+  }
+}
