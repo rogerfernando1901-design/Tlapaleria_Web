@@ -1,0 +1,24 @@
+{
+  "name": "tlapaleria-central",
+  "version": "1.0.0",
+  "description": "Sistema web de compras en línea para Tlapalería Central",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node server/verify.js"
+  },
+  "keywords": [
+    "tlapaleria",
+    "ecommerce",
+    "express",
+    "sqlite"
+  ],
+  "author": "Equipo de Desarrollo",
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "better-sqlite3": "^13.0.3",
+    "express": "^4.22.3"
+  }
+}
