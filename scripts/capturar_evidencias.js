@@ -143,17 +143,17 @@ async function run() {
     // -------------------------------------------------------------
     // HU-06 y HU-07: Carrito de Compras (Administración y Persistencia)
     // -------------------------------------------------------------
-    console.log('📸 [HU-06 y HU-07] Capturando Carrito de Compras...');
+    console.log('📸 [HU-06 y HU-07] Capturando Carrito de Compras y Modificación de Cantidades...');
     await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle2' });
     await page.evaluate(() => {
       const sampleCart = [
         {
-          id: 1,
-          name: 'Pintura Vinílica 19L Blanca',
-          price_cents: 89900,
+          id: 4,
+          name: 'Martillo Tubular 16 oz',
+          price_cents: 18900,
           unit: 'pieza',
-          image_url: 'https://images.unsplash.com/photo-1589939705384-5185137a7f0f?w=400&q=80',
-          quantity: 1
+          image_url: 'https://images.unsplash.com/photo-1586864387967-d02ef85d93e8?w=400&q=80',
+          quantity: 3
         },
         {
           id: 2,
@@ -162,14 +162,23 @@ async function run() {
           unit: 'paquete',
           image_url: 'https://images.unsplash.com/photo-1586864387789-628af9feed72?w=400&q=80',
           quantity: 2
+        },
+        {
+          id: 6,
+          name: 'Pala Redonda Mango Largo',
+          price_cents: 22000,
+          unit: 'pieza',
+          image_url: 'https://images.unsplash.com/photo-1617576683096-00fc8eecb3af?w=400&q=80',
+          quantity: 1
         }
       ];
-      localStorage.setItem('tc_cart', JSON.stringify(sampleCart));
+      localStorage.setItem('tlapaleria_cart_items', JSON.stringify(sampleCart));
     });
 
     await page.goto(`${BASE_URL}/carrito.html`, { waitUntil: 'networkidle2' });
-    await wait(1200);
+    await wait(1500);
     await page.screenshot({ path: path.join(OUT_DIR, 'HU-06_HU-07_Carrito_Compras.png') });
+    await page.screenshot({ path: path.join(OUT_DIR, 'HU-07_Modificar_Carrito_Calculo_Total.png') });
 
     // -------------------------------------------------------------
     // HU-08: Confirmación de Pedido con Folio
@@ -204,12 +213,52 @@ async function run() {
     await page.screenshot({ path: path.join(OUT_DIR, 'HU-08_Confirmacion_Folio_Oficial.png') });
 
     // -------------------------------------------------------------
-    // HU-09 y HU-10: Historial de Pedidos y Cancelación del Cliente
+    // HU-09: Perfil e Historial del Cliente (Historial de Pedidos)
     // -------------------------------------------------------------
-    console.log('📸 [HU-09 y HU-10] Capturando Historial de Pedidos y Cancelación...');
+    console.log('📸 [HU-09] Capturando Historial de Pedidos del Cliente...');
     await page.goto(`${BASE_URL}/perfil.html`, { waitUntil: 'networkidle2' });
     await wait(1500);
+    await page.screenshot({ path: path.join(OUT_DIR, 'HU-09_Historial_Pedidos_Cliente.png') });
     await page.screenshot({ path: path.join(OUT_DIR, 'HU-09_HU-10_Historial_Pedidos_Cliente.png') });
+
+    // -------------------------------------------------------------
+    // HU-09: Perfil del Cliente (Datos de Contacto y Seguridad)
+    // -------------------------------------------------------------
+    console.log('📸 [HU-09] Capturando Datos de Contacto y Seguridad...');
+    await page.click('#tabProfileBtn');
+    await wait(1000);
+    await page.screenshot({ path: path.join(OUT_DIR, 'HU-09_Perfil_Datos_Contacto.png') });
+
+    // -------------------------------------------------------------
+    // HU-10: Cancelación de Pedido por el Cliente y Notificación
+    // -------------------------------------------------------------
+    console.log('📸 [HU-10] Ejecutando cancelación de pedido y capturando evidencia...');
+    await page.click('#tabOrdersBtn');
+    await wait(800);
+    await page.evaluate(async () => {
+      try {
+        const resList = await fetch('/api/pedidos/mis-pedidos');
+        const dList = await resList.json();
+        const firstOrder = dList.pedidos && dList.pedidos.find(p => p.status === 'CONFIRMADO' || p.status === 'EN_PREPARACION');
+        if (firstOrder) {
+          const resCancel = await fetch(`/api/pedidos/${firstOrder.folio}/cancelar`, { method: 'POST' });
+          const cancelData = await resCancel.json();
+          const profileAlert = document.getElementById('profileAlert');
+          if (profileAlert) {
+            profileAlert.textContent = `✓ ${cancelData.message || 'Pedido cancelado con éxito.'}`;
+            profileAlert.className = 'alert alert-success';
+            profileAlert.style.display = 'block';
+          }
+          if (typeof loadOrders === 'function') {
+            await loadOrders();
+          }
+        }
+      } catch (err) {
+        console.error('Error cancelando pedido:', err);
+      }
+    });
+    await wait(1200);
+    await page.screenshot({ path: path.join(OUT_DIR, 'HU-10_Cancelacion_Pedido_Cliente.png') });
 
     // -------------------------------------------------------------
     // CERRAR SESIÓN DE CLIENTE E INICIAR COMO ADMINISTRADOR

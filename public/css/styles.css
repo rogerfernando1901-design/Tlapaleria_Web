@@ -198,8 +198,11 @@ body {
   color: var(--color-surface);
   padding: 0 24px;
   display: flex;
+  justify-content: center;
+  align-items: center;
   gap: 24px;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .category-nav a {
@@ -620,6 +623,12 @@ body {
 }
 
 /* Responsividad */
+@media (max-width: 860px) {
+  .category-nav {
+    justify-content: flex-start;
+  }
+}
+
 @media (max-width: 768px) {
   .main-header {
     flex-direction: column;

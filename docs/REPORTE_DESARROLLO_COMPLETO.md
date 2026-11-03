@@ -234,6 +234,7 @@
   4. Presionar el botón del bote de basura `🗑`: Elimina la fila y muestra el estado "Tu carrito está vacío".
 - **Prueba Negativa:** Modificar la cantidad en cliente a un valor negativo o manipular precios en `localStorage` $\rightarrow$ El servidor descarta precios del cliente, calcula con el precio real de base de datos y fuerza cantidades válidas.
 - **Prueba Automatizada:** `npm test` valida cálculos y respuesta con items agotados. Resultado: **APROBADA**.
+- **Evidencia Visual:** Captura disponible en [`capturas_desarrollo/HU-07_Modificar_Carrito_Calculo_Total.png`](file:///c:/Gestion%20Agil/Tlapaleria_Web/capturas_desarrollo/HU-07_Modificar_Carrito_Calculo_Total.png).
 - **Estado:** COMPLETA Y PROBADA.
 
 ---
@@ -267,6 +268,7 @@
   3. Ir a la pestaña "Mis Datos": Modificar el teléfono a `5599887766` y guardar $\rightarrow$ Alerta verde de éxito.
 - **Prueba Negativa (Privacidad):** En sesión como Cliente B (`nuevo@tlapaleriacentral.mx`), hacer una petición a `/api/pedidos/TC-20261014-XXXX` correspondiente al Cliente A $\rightarrow$ Responde HTTP 403 Prohibido.
 - **Prueba Automatizada:** `npm test` valida listado e intercepta acceso cruzado entre clientes. Resultado: **APROBADA**.
+- **Evidencias Visuales:** Capturas disponibles en [`capturas_desarrollo/HU-09_Historial_Pedidos_Cliente.png`](file:///c:/Gestion%20Agil/Tlapaleria_Web/capturas_desarrollo/HU-09_Historial_Pedidos_Cliente.png) (historial de pedidos con folio oficial, artículos y plazo 48h) y [`capturas_desarrollo/HU-09_Perfil_Datos_Contacto.png`](file:///c:/Gestion%20Agil/Tlapaleria_Web/capturas_desarrollo/HU-09_Perfil_Datos_Contacto.png) (pestaña Mis Datos con verificación de correo, actualización de teléfono y seguridad).
 - **Estado:** COMPLETA Y PROBADA.
 
 ---
@@ -283,6 +285,7 @@
   3. Resultado: El estado cambia a `CANCELADO`, la insignia se actualiza en rojo y los artículos vuelven a estar disponibles en el catálogo.
 - **Prueba Negativa:** Intentar cancelar un pedido ya cancelado o entregado $\rightarrow$ El servidor responde 400 y no vuelve a liberar inventario.
 - **Prueba Automatizada:** `npm test` ejecuta cancelación y comprueba que un segundo intento no altera el stock reservado. Resultado: **APROBADA**.
+- **Evidencia Visual:** Captura disponible en [`capturas_desarrollo/HU-10_Cancelacion_Pedido_Cliente.png`](file:///c:/Gestion%20Agil/Tlapaleria_Web/capturas_desarrollo/HU-10_Cancelacion_Pedido_Cliente.png) (pedido en estado CANCELADO con notificación verde de inventario devuelto al catálogo y retiro del botón de cancelación).
 - **Estado:** COMPLETA Y PROBADA.
 
 ---

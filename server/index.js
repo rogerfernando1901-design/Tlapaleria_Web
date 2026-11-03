@@ -30,9 +30,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-// Parseo de cuerpo en formato JSON y URL-encoded
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Parseo de cuerpo en formato JSON y URL-encoded (límite para carga de imágenes locales)
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 /**
  * Helper utilitario para parsear cookies de forma nativa sin dependencias externas

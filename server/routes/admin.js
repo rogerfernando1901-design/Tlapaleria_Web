@@ -4,6 +4,9 @@
  * Historias: HU-11, HU-12, HU-13, HU-14, HU-15, HU-16.
  */
 
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 const express = require('express');
 const { db } = require('../db');
 const { requireAdmin } = require('../middleware');
@@ -84,6 +87,67 @@ router.get('/productos', (req, res) => {
   } catch (error) {
     console.error('Error al listar productos admin:', error);
     return res.status(500).json({ error: 'Error al listar productos.' });
+  }
+});
+
+/**
+ * [HU-12] Carga directa de imagen local para productos
+ * POST /api/admin/subir-imagen
+ * Acepta JSON con data URI en base64 y guarda el archivo localmente en public/uploads/
+ */
+router.post('/subir-imagen', (req, res) => {
+  try {
+    const { image_data, filename } = req.body;
+    if (!image_data) {
+      return res.status(400).json({ error: 'No se recibió ningún archivo de imagen.' });
+    }
+
+    const matches = image_data.match(/^data:([A-Za-z0-9-+\/]+);base64,(.+)$/);
+    if (!matches || matches.length !== 3) {
+      return res.status(400).json({ error: 'Formato de imagen inválido (se requiere data URI base64).' });
+    }
+
+    const mimeType = matches[1].toLowerCase();
+    const base64Data = matches[2];
+
+    const allowedMimes = {
+      'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
+      'image/png': '.png',
+      'image/webp': '.webp',
+      'image/gif': '.gif'
+    };
+
+    const extension = allowedMimes[mimeType];
+    if (!extension) {
+      return res.status(400).json({ error: 'Formato de imagen no permitido. Solo se admiten JPG, PNG, WEBP o GIF.' });
+    }
+
+    const buffer = Buffer.from(base64Data, 'base64');
+    const MAX_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+    if (buffer.length > MAX_SIZE_BYTES) {
+      return res.status(400).json({ error: 'La imagen excede el límite permitido de 10 MB.' });
+    }
+
+    const uploadsDir = path.join(__dirname, '..', '..', 'public', 'uploads');
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+    }
+
+    const safeName = `prod_${Date.now()}_${crypto.randomBytes(4).toString('hex')}${extension}`;
+    const filePath = path.join(uploadsDir, safeName);
+
+    fs.writeFileSync(filePath, buffer);
+
+    const publicUrl = `/uploads/${safeName}`;
+    return res.status(201).json({
+      message: 'Imagen cargada exitosamente.',
+      url: publicUrl,
+      filename: safeName
+    });
+  } catch (error) {
+    console.error('Error al subir imagen local:', error);
+    return res.status(500).json({ error: 'Error interno al guardar la imagen.' });
   }
 });
 
