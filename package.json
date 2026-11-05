@@ -8,7 +8,8 @@
     "dev": "node --watch server/index.js",
     "seed": "node server/seed.js",
     "test": "node server/tests/full_system_test.js",
-    "test:email": "node server/test_mailer.js"
+    "test:email": "node server/test_mailer.js",
+    "test:orders-email": "node server/tests/test_order_emails.js"
   },
   "keywords": [
     "tlapaleria",

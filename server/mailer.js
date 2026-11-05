@@ -240,10 +240,253 @@ async function sendPasswordChangedNotification(email) {
   return { success: true };
 }
 
+/**
+ * Helper para formatear fecha límite en español
+ */
+function formatPickupDeadline(dateStr) {
+  try {
+    const d = new Date(dateStr);
+    return d.toLocaleString('es-MX', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  } catch (e) {
+    return String(dateStr);
+  }
+}
+
+/**
+ * Helper para renderizar tabla HTML de productos en correos de pedido
+ */
+function renderItemsHtmlTable(items, totalStr) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return '';
+  }
+  const rows = items.map(item => {
+    const name = item.name || item.product_name || `Producto #${item.product_id || ''}`;
+    const qty = item.quantity || 1;
+    const unitPrice = item.price ? item.price : (item.price_cents ? (item.price_cents / 100).toFixed(2) : '0.00');
+    const subtotal = item.subtotal ? item.subtotal : (item.subtotal_cents ? (item.subtotal_cents / 100).toFixed(2) : (qty * parseFloat(unitPrice)).toFixed(2));
+    return `
+      <tr style="border-bottom: 1px solid #E5E7EB;">
+        <td style="padding: 10px 12px; color: #2E2E2E;"><strong>${name}</strong></td>
+        <td style="padding: 10px 12px; text-align: center; color: #555555;">${qty}</td>
+        <td style="padding: 10px 12px; text-align: right; color: #555555;">$${unitPrice}</td>
+        <td style="padding: 10px 12px; text-align: right; font-weight: 600; color: #1F4E79;">$${subtotal}</td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <table style="width: 100%; border-collapse: collapse; margin-top: 16px; margin-bottom: 20px; font-size: 14px;">
+      <thead>
+        <tr style="background-color: #1F4E79; color: #FFFFFF; text-align: left;">
+          <th style="padding: 10px 12px; border-radius: 4px 0 0 0;">Producto</th>
+          <th style="padding: 10px 12px; text-align: center;">Cant.</th>
+          <th style="padding: 10px 12px; text-align: right;">P. Unit.</th>
+          <th style="padding: 10px 12px; text-align: right; border-radius: 0 4px 0 0;">Subtotal</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows}
+      </tbody>
+      <tfoot>
+        <tr style="background-color: #F8F9FA; font-weight: bold; border-top: 2px solid #1F4E79;">
+          <td colspan="3" style="padding: 12px; text-align: right; color: #2E2E2E;">Total a pagar en mostrador:</td>
+          <td style="padding: 12px; text-align: right; color: #1F4E79; font-size: 16px;">$${totalStr} MXN</td>
+        </tr>
+      </tfoot>
+    </table>
+  `;
+}
+
+/**
+ * Helper para renderizar lista de productos en texto plano
+ */
+function renderItemsPlainText(items) {
+  if (!Array.isArray(items) || items.length === 0) return '';
+  return items.map(item => {
+    const name = item.name || item.product_name || `Producto #${item.product_id || ''}`;
+    const qty = item.quantity || 1;
+    const unitPrice = item.price ? item.price : (item.price_cents ? (item.price_cents / 100).toFixed(2) : '0.00');
+    const subtotal = item.subtotal ? item.subtotal : (item.subtotal_cents ? (item.subtotal_cents / 100).toFixed(2) : (qty * parseFloat(unitPrice)).toFixed(2));
+    return ` • ${name} x${qty} ($${unitPrice} c/u) = $${subtotal} MXN`;
+  }).join('\n');
+}
+
+/**
+ * [HU-08] Enviar correo de confirmación de pedido con folio de compra
+ */
+async function sendOrderConfirmationEmail({ email, name, folio, total, pickupDeadline, items = [] }) {
+  const profileUrl = `${APP_URL}/perfil.html`;
+  const formattedDeadline = formatPickupDeadline(pickupDeadline);
+  const totalStr = typeof total === 'number' ? total.toFixed(2) : String(total);
+  const itemsTableHtml = renderItemsHtmlTable(items, totalStr);
+  const itemsText = renderItemsPlainText(items);
+
+  console.log('\n================================================================');
+  console.log('   [CORREO DE PEDIDO] CONFIRMACIÓN DE COMPRA');
+  console.log('================================================================');
+  console.log(` Para: ${name} <${email}>`);
+  console.log(` Folio: ${folio}`);
+  console.log(` Total a pagar: $${totalStr} MXN`);
+  console.log(` Fecha límite para recoger (48 hrs): ${formattedDeadline}`);
+  console.log(` Artículos (${items.length}):`);
+  if (itemsText) console.log(itemsText);
+  console.log('================================================================\n');
+
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: SMTP_FROM,
+        to: email,
+        subject: `Confirmación de pedido #${folio} — Tlapalería Central`,
+        text: `¡Hola ${name}!\n\nTu pedido ha sido confirmado exitosamente en Tlapalería Central.\n\n` +
+              `========================================\n` +
+              `FOLIO DE TU COMPRA: ${folio}\n` +
+              `TOTAL A PAGAR EN TIENDA: $${totalStr} MXN\n` +
+              `FECHA LÍMITE DE RECOLECCIÓN (48 hrs): ${formattedDeadline}\n` +
+              `========================================\n\n` +
+              `Resumen de artículos:\n${itemsText}\n\n` +
+              `Instrucciones de recolección y pago:\n` +
+              `1. Acude a nuestra sucursal dentro del plazo de 48 horas naturales.\n` +
+              `   Dirección: Av. Central #123, Col. Centro.\n` +
+              `   Horario: Lunes a Sábado de 8:00 a 19:00 hrs.\n` +
+              `2. Presenta tu folio (${folio}) en caja/mostrador de entrega web.\n` +
+              `3. Realiza tu pago en efectivo o tarjeta al recibir tu mercancía.\n\n` +
+              `Puedes consultar tu historial de pedidos en: ${profileUrl}\n\n` +
+              `¡Gracias por tu preferencia!`,
+        html: createHtmlEmailTemplate({
+          title: '¡Pedido Confirmado con Éxito!',
+          subtitle: `Hola <strong>${name}</strong>, hemos registrado tu pedido y tu mercancía ya se encuentra apartada.`,
+          contentHtml: `
+            <div style="background-color: #EFF6FF; border: 2px dashed #1F4E79; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+              <span style="font-size: 12px; font-weight: 700; color: #64748B; text-transform: uppercase; letter-spacing: 1px;">Folio Único de tu Compra</span>
+              <div style="font-size: 28px; font-weight: 800; color: #1F4E79; letter-spacing: 2px; margin: 8px 0;">${folio}</div>
+              <div style="font-size: 16px; color: #D97706; font-weight: 700;">Total a pagar en mostrador: $${totalStr} MXN</div>
+              <div style="font-size: 13px; color: #4B5563; margin-top: 6px;">⏱ <strong>Límite de recolección:</strong> ${formattedDeadline}</div>
+            </div>
+
+            <h3 style="color: #1F4E79; font-size: 16px; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #E5E7EB; padding-bottom: 6px;">
+              📦 Resumen de Artículos Apartados
+            </h3>
+            ${itemsTableHtml}
+
+            <div style="background-color: #F8FAFC; border-left: 4px solid #1F4E79; padding: 16px; border-radius: 4px; margin: 20px 0; font-size: 13px; line-height: 1.6;">
+              <h4 style="margin: 0 0 8px 0; color: #1F4E79; font-size: 14px;">📍 Instrucciones de Recolección y Pago</h4>
+              <p style="margin: 4px 0;"><strong>1. Dirección:</strong> Av. Central #123, Col. Centro.</p>
+              <p style="margin: 4px 0;"><strong>2. Horario:</strong> Lunes a Sábado de 8:00 a 19:00 hrs.</p>
+              <p style="margin: 4px 0;"><strong>3. Pago:</strong> Presencial al recoger (Efectivo o Tarjeta de débito/crédito).</p>
+              <p style="margin: 4px 0;"><strong>4. Folio:</strong> Muestra este correo o menciona tu folio <strong>${folio}</strong> en caja.</p>
+            </div>
+          `,
+          ctaText: 'Ver mis pedidos en línea →',
+          ctaUrl: profileUrl,
+          noticeText: '⏱ <strong>Vigencia de reserva:</strong> Cuentas con <strong>48 horas naturales</strong> para acudir a pagar y recoger tu pedido. Al vencer el plazo, los productos volverán automáticamente al inventario de la tienda.'
+        })
+      });
+
+      console.log(`✉️ [GMAIL SMTP] Correo de confirmación de pedido ${folio} enviado a ${email} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error(`❌ [GMAIL SMTP] Error enviando confirmación de pedido a ${email}:`, error.message);
+      return { success: true, error: error.message };
+    }
+  }
+
+  return { success: true, simulated: true };
+}
+
+/**
+ * [HU-10] Enviar correo de notificación de cancelación de pedido
+ */
+async function sendOrderCancellationEmail({ email, name, folio, total, items = [], reason }) {
+  const storeUrl = `${APP_URL}/`;
+  const totalStr = typeof total === 'number' ? total.toFixed(2) : String(total);
+  const itemsTableHtml = renderItemsHtmlTable(items, totalStr);
+  const itemsText = renderItemsPlainText(items);
+  const cancelReason = reason || 'Cancelación solicitada por el usuario';
+
+  console.log('\n================================================================');
+  console.log('   [CORREO DE PEDIDO] CANCELACIÓN DE PEDIDO');
+  console.log('================================================================');
+  console.log(` Para: ${name} <${email}>`);
+  console.log(` Folio cancelado: ${folio}`);
+  console.log(` Motivo: ${cancelReason}`);
+  console.log(` Total liberado: $${totalStr} MXN`);
+  console.log('================================================================\n');
+
+  if (transporter) {
+    try {
+      const info = await transporter.sendMail({
+        from: SMTP_FROM,
+        to: email,
+        subject: `Notificación: Cancelación de pedido #${folio} — Tlapalería Central`,
+        text: `Hola ${name},\n\nTe informamos que tu pedido con folio ${folio} ha sido cancelado exitosamente.\n\n` +
+              `========================================\n` +
+              `ESTADO: PEDIDO CANCELADO\n` +
+              `FOLIO: ${folio}\n` +
+              `MOTIVO: ${cancelReason}\n` +
+              `TOTAL LIBERADO: $${totalStr} MXN\n` +
+              `========================================\n\n` +
+              (itemsText ? `Artículos cancelados:\n${itemsText}\n\n` : '') +
+              `Los productos reservados han vuelto a estar disponibles en el catálogo de la tienda.\n\n` +
+              `Si deseas realizar un nuevo pedido, visita nuestra tienda en línea:\n${storeUrl}\n\n` +
+              `Atención al cliente: (55) 1234-5678`,
+        html: createHtmlEmailTemplate({
+          title: 'Notificación: Pedido Cancelado',
+          subtitle: `Hola <strong>${name}</strong>, te confirmamos que tu pedido con folio <strong>${folio}</strong> ha sido cancelado.`,
+          contentHtml: `
+            <div style="background-color: #FEF2F2; border: 2px dashed #DC2626; border-radius: 8px; padding: 20px; text-align: center; margin: 20px 0;">
+              <span style="font-size: 12px; font-weight: 700; color: #991B1B; text-transform: uppercase; letter-spacing: 1px;">Estado del Pedido</span>
+              <div style="font-size: 26px; font-weight: 800; color: #DC2626; letter-spacing: 2px; margin: 8px 0;">CANCELADO</div>
+              <div style="font-size: 14px; color: #4B5563;">Folio: <strong>${folio}</strong></div>
+              <div style="font-size: 13px; color: #7F1D1D; margin-top: 6px;">Motivo: ${cancelReason}</div>
+            </div>
+
+            <p style="font-size: 14px; color: #4B5563; line-height: 1.6;">
+              Los artículos que tenías apartados han sido liberados de tu reserva y han vuelto a estar disponibles en el inventario general de la tienda.
+            </p>
+
+            ${items.length > 0 ? `
+              <h3 style="color: #1F4E79; font-size: 16px; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #E5E7EB; padding-bottom: 6px;">
+                📋 Artículos que formaban parte del pedido
+              </h3>
+              ${itemsTableHtml}
+            ` : ''}
+
+            <p style="font-size: 13px; color: #666666; margin-top: 20px;">
+              Si cancelaste este pedido por error o deseas adquirir otros materiales y herramientas, te invitamos a visitar nuevamente nuestro catálogo en línea.
+            </p>
+          `,
+          ctaText: 'Ir a la Tienda en Línea →',
+          ctaUrl: storeUrl,
+          noticeText: '🛡️ Si tú no solicitaste esta cancelación o crees que se trata de un error, por favor contáctanos de inmediato al (55) 1234-5678.'
+        })
+      });
+
+      console.log(`✉️ [GMAIL SMTP] Correo de cancelación de pedido ${folio} enviado a ${email} (ID: ${info.messageId})`);
+      return { success: true, messageId: info.messageId };
+    } catch (error) {
+      console.error(`❌ [GMAIL SMTP] Error enviando correo de cancelación a ${email}:`, error.message);
+      return { success: true, error: error.message };
+    }
+  }
+
+  return { success: true, simulated: true };
+}
+
 module.exports = {
   sendVerificationEmail,
   sendPasswordResetEmail,
   sendPasswordChangedNotification,
+  sendOrderConfirmationEmail,
+  sendOrderCancellationEmail,
   transporter,
   isRealSmtpConfigured
 };

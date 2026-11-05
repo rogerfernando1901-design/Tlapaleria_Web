@@ -8,6 +8,7 @@
 const express = require('express');
 const { db, generateOrderFolio } = require('../db');
 const { requireAuth, requireVerified } = require('../middleware');
+const { sendOrderConfirmationEmail, sendOrderCancellationEmail } = require('../mailer');
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ const router = express.Router();
  * [HU-08] Confirmar compra, generar folio y reservar inventario de forma atómica
  * POST /api/pedidos
  */
-router.post('/', requireAuth, requireVerified, (req, res) => {
+router.post('/', requireAuth, requireVerified, async (req, res) => {
   const { items } = req.body;
 
   if (!Array.isArray(items) || items.length === 0) {
@@ -137,7 +138,8 @@ router.post('/', requireAuth, requireVerified, (req, res) => {
         totalCents,
         total: (totalCents / 100).toFixed(2),
         pickupDeadline: deadlineIso,
-        itemsCount: orderItemsToInsert.length
+        itemsCount: orderItemsToInsert.length,
+        items: orderItemsToInsert
       };
     });
 
@@ -153,8 +155,18 @@ router.post('/', requireAuth, requireVerified, (req, res) => {
     console.log(' Pago: Presencial en tienda al recoger la mercancía');
     console.log('================================================================\n');
 
+    // Enviar correo de confirmación de pedido con folio de compra en tiempo real
+    await sendOrderConfirmationEmail({
+      email: req.user.email,
+      name: req.user.name,
+      folio: orderData.folio,
+      total: orderData.total,
+      pickupDeadline: orderData.pickupDeadline,
+      items: orderData.items
+    });
+
     return res.status(201).json({
-      message: '¡Pedido confirmado exitosamente! Presenta tu folio en tienda para pagar y recoger tus productos.',
+      message: '¡Pedido confirmado exitosamente! Hemos enviado la confirmación y el folio a tu correo. Presenta tu folio en tienda para pagar y recoger tus productos.',
       order: orderData
     });
   } catch (error) {
@@ -285,13 +297,16 @@ router.get('/:folio', requireAuth, (req, res) => {
  * [HU-10] Cancelar pedido y liberar reserva de inventario una sola vez
  * POST /api/pedidos/:folio/cancelar
  */
-router.post('/:folio/cancelar', requireAuth, (req, res) => {
+router.post('/:folio/cancelar', requireAuth, async (req, res) => {
   try {
     const { folio } = req.params;
 
     const order = db.prepare(`
-      SELECT id, folio, user_id, status, is_reservation_released
-      FROM orders WHERE folio = ?
+      SELECT o.id, o.folio, o.user_id, o.total_cents, o.status, o.is_reservation_released,
+             u.name as customer_name, u.email as customer_email
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      WHERE o.folio = ?
     `).get(folio);
 
     if (!order) {
@@ -316,6 +331,14 @@ router.post('/:folio/cancelar', requireAuth, (req, res) => {
       return res.status(400).json({ error: 'El pedido ya está marcado como vencido.' });
     }
 
+    // Consultar artículos con detalle para liberación y notificación
+    const items = db.prepare(`
+      SELECT oi.product_id, oi.quantity, oi.price_cents, oi.subtotal_cents, p.name
+      FROM order_items oi
+      JOIN products p ON oi.product_id = p.id
+      WHERE oi.order_id = ?
+    `).all(order.id);
+
     const cancelTx = db.transaction(() => {
       const nowIso = new Date().toISOString();
 
@@ -328,7 +351,6 @@ router.post('/:folio/cancelar', requireAuth, (req, res) => {
 
       // Si la reserva no había sido liberada, liberarla exactamente una sola vez
       if (order.is_reservation_released === 0) {
-        const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(order.id);
         const updateStock = db.prepare(`
           UPDATE products
           SET stock_reserved = MAX(0, stock_reserved - ?)
@@ -350,8 +372,20 @@ router.post('/:folio/cancelar', requireAuth, (req, res) => {
 
     console.log(`[AVISO] Pedido ${folio} cancelado exitosamente. Inventario reservado liberado.`);
 
+    // Enviar correo de notificación de cancelación al cliente en tiempo real
+    await sendOrderCancellationEmail({
+      email: order.customer_email,
+      name: order.customer_name,
+      folio: order.folio,
+      total: (order.total_cents / 100).toFixed(2),
+      items: items,
+      reason: req.user.role === 'ADMINISTRADOR' && req.user.id !== order.user_id
+        ? 'Cancelado por el administrador de la tienda'
+        : 'Cancelado a solicitud del cliente'
+    });
+
     return res.json({
-      message: `El pedido ${folio} ha sido cancelado y los artículos reservados han vuelto al inventario disponible.`,
+      message: `El pedido ${folio} ha sido cancelado exitosamente. Se ha enviado una notificación a tu correo y los artículos reservados volvieron al inventario disponible.`,
       status: 'CANCELADO'
     });
   } catch (error) {

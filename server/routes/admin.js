@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { db } = require('../db');
 const { requireAdmin } = require('../middleware');
+const { sendOrderCancellationEmail } = require('../mailer');
 
 const router = express.Router();
 
@@ -478,7 +479,7 @@ router.get('/pedidos', (req, res) => {
  * [HU-15] Actualización de estado del pedido con control estricto de inventario
  * PATCH /api/admin/pedidos/:folio/estado
  */
-router.patch('/pedidos/:folio/estado', (req, res) => {
+router.patch('/pedidos/:folio/estado', async (req, res) => {
   try {
     const { folio } = req.params;
     const { nuevo_estado } = req.body;
@@ -489,8 +490,11 @@ router.patch('/pedidos/:folio/estado', (req, res) => {
     }
 
     const order = db.prepare(`
-      SELECT id, folio, status, is_stock_deducted, is_reservation_released
-      FROM orders WHERE folio = ?
+      SELECT o.id, o.folio, o.user_id, o.total_cents, o.status, o.is_stock_deducted, o.is_reservation_released,
+             u.name as customer_name, u.email as customer_email
+      FROM orders o
+      JOIN users u ON o.user_id = u.id
+      WHERE o.folio = ?
     `).get(folio);
 
     if (!order) {
@@ -509,7 +513,12 @@ router.patch('/pedidos/:folio/estado', (req, res) => {
       return res.json({ message: 'El pedido ya tiene ese estado.', status: order.status });
     }
 
-    const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(order.id);
+    const items = db.prepare(`
+      SELECT oi.product_id, oi.quantity, oi.price_cents, oi.subtotal_cents, p.name
+      FROM order_items oi
+      JOIN products p ON oi.product_id = p.id
+      WHERE oi.order_id = ?
+    `).all(order.id);
     const nowIso = new Date().toISOString();
 
     const transitionTx = db.transaction(() => {
@@ -581,6 +590,18 @@ router.patch('/pedidos/:folio/estado', (req, res) => {
     });
 
     const msg = transitionTx();
+
+    // Si el estado pasó a CANCELADO, notificar por correo al cliente
+    if (nuevo_estado === 'CANCELADO') {
+      await sendOrderCancellationEmail({
+        email: order.customer_email,
+        name: order.customer_name,
+        folio: order.folio,
+        total: (order.total_cents / 100).toFixed(2),
+        items: items,
+        reason: 'Cancelado por el personal administrativo'
+      });
+    }
 
     return res.json({
       message: msg,
